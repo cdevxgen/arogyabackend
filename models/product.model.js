@@ -2,7 +2,9 @@ import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
-// ✅ Variant Schema
+// ----------------------
+// Variant Schema (WEIGHT)
+// ----------------------
 const variantSchema = new Schema(
   {
     variantId: { type: String, required: true },
@@ -16,7 +18,29 @@ const variantSchema = new Schema(
   { _id: false }
 );
 
-// ✅ Image Schema
+// ----------------------
+// Flavor Variant Schema (OPTIONAL)
+// ----------------------
+const flavorSchema = new Schema(
+  {
+    flavorId: { type: String },
+    name: { type: String },
+    slug: { type: String },
+    label: { type: String },
+
+    price: { type: Number },
+
+    discount: { type: Number, default: 0 },
+    finalPrice: { type: Number },
+
+    stock: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
+
+// ----------------------
+// Image Schema
+// ----------------------
 const imageSchema = new Schema(
   {
     _id: { type: String },
@@ -25,7 +49,9 @@ const imageSchema = new Schema(
   { _id: false }
 );
 
-// ✅ Category Schema
+// ----------------------
+// Category Schema
+// ----------------------
 const categorySchema = new Schema(
   {
     id: { type: String, required: true },
@@ -34,7 +60,9 @@ const categorySchema = new Schema(
   { _id: false }
 );
 
-// ✅ Offer Date Schema
+// ----------------------
+// Offer Date Schema
+// ----------------------
 const offerDateSchema = new Schema(
   {
     startDate: { type: Date },
@@ -43,7 +71,9 @@ const offerDateSchema = new Schema(
   { _id: false }
 );
 
-// ✅ Additional Info (Ingredients, Benefits, etc.)
+// ----------------------
+// Additional Info Schema
+// ----------------------
 const infoSchema = new Schema(
   {
     key: { type: String },
@@ -52,7 +82,9 @@ const infoSchema = new Schema(
   { _id: false }
 );
 
-// ✅ Shipping Info
+// ----------------------
+// Shipping Info Schema
+// ----------------------
 const shippingSchema = new Schema(
   {
     weight: { type: String },
@@ -62,7 +94,9 @@ const shippingSchema = new Schema(
   { _id: false }
 );
 
-// ✅ SEO Schema
+// ----------------------
+// SEO Schema
+// ----------------------
 const seoSchema = new Schema(
   {
     metaTitle: { type: String },
@@ -72,7 +106,9 @@ const seoSchema = new Schema(
   { _id: false }
 );
 
-// ✅ Review Schema
+// ----------------------
+// Review Schema
+// ----------------------
 const reviewSchema = new Schema(
   {
     userId: { type: String, required: true },
@@ -83,37 +119,58 @@ const reviewSchema = new Schema(
   { _id: false }
 );
 
-// ✅ Main Product Schema
+// ----------------------
+// PRODUCT SCHEMA (FINAL)
+// ----------------------
 const productSchema = new Schema(
   {
     sku: { type: String, unique: true, required: true },
     title: { type: String, required: true },
     slug: { type: String, unique: true, required: true },
+
     category: categorySchema,
+
     img: { type: String, required: true },
     imageURLs: [imageSchema],
-    variants: [variantSchema],
+
+    // ⭐ Weight variants
+    variantone: {
+      type: [variantSchema],
+      required: true,
+      default: [],
+    },
+
+    // ⭐ Flavor variants (OPTIONAL)
+    varianttwo: {
+      type: [flavorSchema],
+      default: [], // If no flavor → safe
+    },
+
     status: {
       type: String,
       enum: ["in-stock", "out-of-stock", "preorder"],
       default: "in-stock",
     },
+
     offerDate: offerDateSchema,
+
     description: { type: String, required: true },
     additionalInformation: [infoSchema],
+
     shippingInfo: shippingSchema,
+
     featured: { type: Boolean, default: false },
     tags: [String],
-    videoId: { type: String }, // ✅ added
-    reviews: [reviewSchema], // ✅ added
+    videoId: { type: String },
+
+    reviews: [reviewSchema],
+
     seo: seoSchema,
   },
   { timestamps: true }
 );
 
-// ✅ Text Index for Search
 productSchema.index({ title: "text", tags: "text", description: "text" });
 
-// ✅ Model Export
 export const Product =
   mongoose.models.Product || mongoose.model("Product", productSchema);
