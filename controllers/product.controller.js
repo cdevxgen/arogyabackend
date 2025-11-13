@@ -81,3 +81,40 @@ export const deleteProduct = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getProductBySlug = async (req, res) => {
+  try {
+    const product = await Product.findOne({ slug: req.params.slug });
+
+    if (!product)
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+
+    res.status(200).json({ success: true, data: product });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const searchProducts = async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q) {
+      return res.status(400).json({
+        success: false,
+        message: "Search query (q) is required",
+      });
+    }
+
+    const products = await Product.find({
+      title: { $regex: q, $options: "i" }, // case-insensitive search
+    });
+
+    res.status(200).json({ success: true, data: products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
