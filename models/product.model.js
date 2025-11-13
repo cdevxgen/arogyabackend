@@ -26,13 +26,8 @@ const flavorSchema = new Schema(
     flavorId: { type: String },
     name: { type: String },
     slug: { type: String },
-    label: { type: String },
-
     price: { type: Number },
-
-    discount: { type: Number, default: 0 },
     finalPrice: { type: Number },
-
     stock: { type: Number, default: 0 },
   },
   { _id: false }
