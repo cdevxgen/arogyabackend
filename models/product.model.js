@@ -62,6 +62,13 @@ const offerDateSchema = new Schema(
   {
     startDate: { type: Date },
     endDate: { type: Date },
+    offers: [
+      {
+        title: { type: String, required: true },
+        description: { type: String, required: true },
+        link: { type: String },
+      },
+    ],
   },
   { _id: false }
 );
