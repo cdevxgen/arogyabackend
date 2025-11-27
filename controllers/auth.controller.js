@@ -7,10 +7,9 @@ const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "1d" });
 };
 
-// ----- Get all users (ADMIN ONLY) -----
+// ---------- Get all Users ----------
 export const getAllUsers = async (req, res) => {
   try {
-    // Admin sees everyone
     const users = await User.find().select("-password");
     res.json(users);
   } catch (error) {
@@ -18,7 +17,7 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-// ----- Register Admin -----
+// ---------- Register Admin ----------
 export const registerAdmin = async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -46,10 +45,10 @@ export const registerAdmin = async (req, res) => {
   }
 };
 
-// ----- Register User (ADMIN ONLY) -----
+// ---------- Register User ----------
 export const registerUser = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, role } = req.body;
 
     const exists = await User.findOne({ email });
     if (exists)
@@ -59,7 +58,7 @@ export const registerUser = async (req, res) => {
       username,
       email,
       password,
-      role: "user",
+      role: role || "user",
     });
 
     res.json({
@@ -74,7 +73,7 @@ export const registerUser = async (req, res) => {
   }
 };
 
-// ----- Login -----
+// ---------- Login (Email or Username) ----------
 export const login = async (req, res) => {
   try {
     const { identifier, password } = req.body;
@@ -100,17 +99,54 @@ export const login = async (req, res) => {
   }
 };
 
-// ----- Forgot Password -----
+// ---------- Update User (Admin Only) ----------
+export const updateUser = async (req, res) => {
+  try {
+    const data = req.body;
+
+    // If password is empty, don't update it
+    if (!data.password) delete data.password;
+
+    const updated = await User.findByIdAndUpdate(req.params.id, data, {
+      new: true,
+      runValidators: true,
+    }).select("-password");
+
+    if (!updated) return res.status(404).json({ message: "User not found" });
+
+    res.json({
+      message: "User updated successfully",
+      user: updated,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ---------- Delete User (Admin Only) ----------
+export const deleteUser = async (req, res) => {
+  try {
+    const deleted = await User.findByIdAndDelete(req.params.id);
+
+    if (!deleted) return res.status(404).json({ message: "User not found" });
+
+    res.json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ---------- Forgot Password ----------
 export const forgotPassword = async (req, res) => {
   try {
     const user = await User.findOne({ email: req.body.email });
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    const resetToken = user.getResetPasswordToken();
+    const token = user.getResetPasswordToken();
     await user.save({ validateBeforeSave: false });
 
-    const resetUrl = `${process.env.FRONTEND_URL}/admin/reset-password/${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL}/admin/reset-password/${token}`;
 
     const transporter = nodemailer.createTransport({
       service: process.env.SERVICE,
@@ -121,8 +157,7 @@ export const forgotPassword = async (req, res) => {
       from: `"Support" <${process.env.EMAIL_USER}>`,
       to: user.email,
       subject: "Password Reset",
-      html: `<p>Click below to reset your password:</p>
-             <a href="${resetUrl}">${resetUrl}</a>`,
+      html: `<p>Reset your password:</p><a href="${resetUrl}">${resetUrl}</a>`,
     });
 
     res.json({ message: "Reset link sent to email" });
@@ -131,7 +166,7 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// ----- Reset Password -----
+// ---------- Reset Password ----------
 export const resetPassword = async (req, res) => {
   try {
     const hashed = crypto
@@ -152,7 +187,6 @@ export const resetPassword = async (req, res) => {
     user.resetPasswordExpire = undefined;
 
     await user.save();
-
     res.json({ message: "Password reset successful" });
   } catch (error) {
     res.status(500).json({ message: error.message });
