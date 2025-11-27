@@ -3,6 +3,7 @@ import { connectDB } from "./db/db.js";
 import productRouter from "./routes/product.router.js";
 import orderRouter from "./routes/order.router.js";
 import couponRouter from "./routes/coupon.router.js";
+import authRouter from "./routes/auth.router.js";
 
 import cors from "cors";
 
@@ -19,10 +20,13 @@ app.use(
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 connectDB();
+
+app.use("/api/auth", authRouter);
 
 // API Routes
 app.use("/api/v4/products", productRouter);
