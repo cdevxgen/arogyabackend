@@ -93,3 +93,66 @@ export const getAllOrders = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// TRACK ORDER BY PHONE
+export const trackOrder = async (req, res) => {
+  try {
+    const { phone } = req.query;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number is required",
+      });
+    }
+
+    const order = await Order.findOne({
+      "customerDetails.phone": phone,
+    }).sort({ createdAt: -1 }); // latest order
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "No order found for this phone number",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      order,
+    });
+  } catch (err) {
+    console.error("Tracking error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// GET ORDER BY ID
+export const getOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const order = await Order.findById(id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      order,
+    });
+  } catch (err) {
+    console.error("Error fetching order:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
