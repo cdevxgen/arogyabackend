@@ -2,6 +2,7 @@ import express from "express";
 import { connectDB } from "./db/db.js";
 import productRouter from "./routes/product.router.js";
 import orderRouter from "./routes/order.router.js";
+import couponRouter from "./routes/coupon.router.js";
 
 import cors from "cors";
 
@@ -14,7 +15,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000", // Local frontend
-      "https://arogyabackend.vercel.app", // ✅ Production frontend
+      "https://arogyaguru.vercel.app", // ✅ Production frontend
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
@@ -26,6 +27,7 @@ connectDB();
 // API Routes
 app.use("/api/v4/products", productRouter);
 app.use("/api/v4/orders", orderRouter);
+app.use("/api/v4/coupons", couponRouter);
 
 app.get("/", (req, res) => {
   res.send("API is running...");
