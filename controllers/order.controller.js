@@ -158,6 +158,38 @@ export const getOrderById = async (req, res) => {
   }
 };
 
+// ⭐ UPDATE ORDER (EDIT ORDER DETAILS + TRACKING NUMBER)
+export const updateOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const updated = await Order.findByIdAndUpdate(
+      id,
+      { $set: req.body }, // update any field dynamically
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Order updated successfully",
+      order: updated,
+    });
+  } catch (err) {
+    console.error("Error updating order:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
 // DELETE ORDER BY ID
 export const deleteOrder = async (req, res) => {
   try {
@@ -189,7 +221,7 @@ export const deleteOrder = async (req, res) => {
 // DELETE MULTIPLE ORDERS
 export const deleteMultipleOrders = async (req, res) => {
   try {
-    const { ids } = req.body; // expecting array of order IDs
+    const { ids } = req.body;
 
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({

@@ -31,9 +31,9 @@ const orderSchema = new mongoose.Schema(
     ],
 
     // 💰 Financials
-    subtotal: { type: Number, required: true }, // BEFORE discount
-    discountAmount: { type: Number, default: 0 }, // discount value
-    totalAmount: { type: Number, required: true }, // AFTER discount
+    subtotal: { type: Number, required: true },
+    discountAmount: { type: Number, default: 0 },
+    totalAmount: { type: Number, required: true },
 
     // 🎟 Coupon Info
     couponCode: { type: String, default: null },
@@ -59,6 +59,9 @@ const orderSchema = new mongoose.Schema(
       default: "Pending",
       enum: ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"],
     },
+
+    // 🚚 Tracking / AWB Number (NEW)
+    trackingNumber: { type: String, default: null },
 
     // 📝 Additional Info
     additionalInfo: {
