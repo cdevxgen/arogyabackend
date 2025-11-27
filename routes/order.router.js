@@ -4,6 +4,8 @@ import {
   getAllOrders,
   trackOrder,
   getOrderById,
+  deleteOrder,
+  deleteMultipleOrders,
 } from "../controllers/order.controller.js";
 
 const router = express.Router();
@@ -13,5 +15,9 @@ router.get("/", getAllOrders); // Fetch all orders
 
 router.get("/track", trackOrder);
 router.get("/:id", getOrderById);
+
+router.delete("/:id", deleteOrder);
+
+router.post("/bulk-delete", deleteMultipleOrders);
 
 export default router;

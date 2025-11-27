@@ -157,3 +157,58 @@ export const getOrderById = async (req, res) => {
     });
   }
 };
+
+// DELETE ORDER BY ID
+export const deleteOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deleted = await Order.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Order deleted successfully",
+      deletedOrder: deleted,
+    });
+  } catch (err) {
+    console.error("Error deleting order:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+// DELETE MULTIPLE ORDERS
+export const deleteMultipleOrders = async (req, res) => {
+  try {
+    const { ids } = req.body; // expecting array of order IDs
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Order IDs array is required",
+      });
+    }
+
+    const result = await Order.deleteMany({ _id: { $in: ids } });
+
+    return res.status(200).json({
+      success: true,
+      message: `${result.deletedCount} orders deleted successfully`,
+    });
+  } catch (err) {
+    console.error("Bulk delete error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
