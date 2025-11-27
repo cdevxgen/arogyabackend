@@ -4,6 +4,7 @@ import productRouter from "./routes/product.router.js";
 import orderRouter from "./routes/order.router.js";
 import couponRouter from "./routes/coupon.router.js";
 import authRouter from "./routes/auth.router.js";
+import blogRouter from "./routes/blog.router.js";
 
 import cors from "cors";
 
@@ -32,6 +33,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/v4/products", productRouter);
 app.use("/api/v4/orders", orderRouter);
 app.use("/api/v4/coupons", couponRouter);
+app.use("/api/v4/blogs", blogRouter);
 
 app.get("/", (req, res) => {
   res.send("API is running...");
