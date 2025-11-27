@@ -7,10 +7,10 @@ const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "1d" });
 };
 
-// Only admin can access
+// ----- Get all users (ADMIN ONLY) -----
 export const getAllUsers = async (req, res) => {
   try {
-    // Fetch all users, exclude passwords
+    // Admin sees everyone
     const users = await User.find().select("-password");
     res.json(users);
   } catch (error) {
@@ -18,13 +18,14 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-// ----- Register Admin (use once) -----
+// ----- Register Admin -----
 export const registerAdmin = async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    const userExists = await User.findOne({ email });
-    if (userExists)
-      return res.status(400).json({ message: "User already exists" });
+
+    const exists = await User.findOne({ email });
+    if (exists)
+      return res.status(400).json({ message: "Email already exists" });
 
     const user = await User.create({
       username,
@@ -35,8 +36,8 @@ export const registerAdmin = async (req, res) => {
 
     res.json({
       _id: user._id,
-      username: user.username,
-      email: user.email,
+      username,
+      email,
       role: user.role,
       token: generateToken(user._id, user.role),
     });
@@ -45,20 +46,26 @@ export const registerAdmin = async (req, res) => {
   }
 };
 
-// ----- Register User -----
+// ----- Register User (ADMIN ONLY) -----
 export const registerUser = async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    const userExists = await User.findOne({ email });
-    if (userExists)
-      return res.status(400).json({ message: "User already exists" });
 
-    const user = await User.create({ username, email, password });
+    const exists = await User.findOne({ email });
+    if (exists)
+      return res.status(400).json({ message: "Email already exists" });
+
+    const user = await User.create({
+      username,
+      email,
+      password,
+      role: "user",
+    });
 
     res.json({
       _id: user._id,
-      username: user.username,
-      email: user.email,
+      username,
+      email,
       role: user.role,
       token: generateToken(user._id, user.role),
     });
@@ -70,34 +77,25 @@ export const registerUser = async (req, res) => {
 // ----- Login -----
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    console.log("Login attempt:", { email, password }); // log email/password
+    const { identifier, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      console.log("User not found:", email);
-      return res.status(401).json({ message: "Invalid email or password" });
-    }
+    const user = await User.findOne({
+      $or: [{ email: identifier }, { username: identifier }],
+    });
 
-    const isMatch = await user.matchPassword(password);
-    console.log("Password match:", isMatch);
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-    if (isMatch) {
-      const token = generateToken(user._id, user.role);
-      console.log("Login successful, token generated");
-      res.json({
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        token,
-      });
-    } else {
-      console.log("Password incorrect for user:", email);
-      res.status(401).json({ message: "Invalid email or password" });
-    }
+    const match = await user.matchPassword(password);
+    if (!match) return res.status(401).json({ message: "Invalid credentials" });
+
+    res.json({
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      token: generateToken(user._id, user.role),
+    });
   } catch (error) {
-    console.error("Login error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -106,6 +104,7 @@ export const login = async (req, res) => {
 export const forgotPassword = async (req, res) => {
   try {
     const user = await User.findOne({ email: req.body.email });
+
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const resetToken = user.getResetPasswordToken();
@@ -114,16 +113,16 @@ export const forgotPassword = async (req, res) => {
     const resetUrl = `${process.env.FRONTEND_URL}/admin/reset-password/${resetToken}`;
 
     const transporter = nodemailer.createTransport({
-      service: process.env.SERVICE, // ✅ use SERVICE
+      service: process.env.SERVICE,
       auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
     });
 
     await transporter.sendMail({
       from: `"Support" <${process.env.EMAIL_USER}>`,
       to: user.email,
-      subject: "Password Reset Request",
-      html: `<p>You requested a password reset</p>
-             <p><a href="${resetUrl}">Click here to reset your password</a></p>`,
+      subject: "Password Reset",
+      html: `<p>Click below to reset your password:</p>
+             <a href="${resetUrl}">${resetUrl}</a>`,
     });
 
     res.json({ message: "Reset link sent to email" });
@@ -135,13 +134,13 @@ export const forgotPassword = async (req, res) => {
 // ----- Reset Password -----
 export const resetPassword = async (req, res) => {
   try {
-    const resetPasswordToken = crypto
+    const hashed = crypto
       .createHash("sha256")
       .update(req.params.token)
       .digest("hex");
 
     const user = await User.findOne({
-      resetPasswordToken,
+      resetPasswordToken: hashed,
       resetPasswordExpire: { $gt: Date.now() },
     });
 
@@ -153,6 +152,7 @@ export const resetPassword = async (req, res) => {
     user.resetPasswordExpire = undefined;
 
     await user.save();
+
     res.json({ message: "Password reset successful" });
   } catch (error) {
     res.status(500).json({ message: error.message });
