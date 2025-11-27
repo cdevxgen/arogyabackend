@@ -156,11 +156,21 @@ export const applyCoupon = async (req, res) => {
 
     const finalAmount = Math.max(cartTotal - discountAmount, 0);
 
+    // ⭐ RETURN FULL DATA (needed for frontend)
     res.status(200).json({
       success: true,
-      discountAmount,
-      finalAmount,
       message: "Coupon applied successfully",
+
+      // 🔥 Required by frontend
+      code: coupon.code,
+      discountValue: coupon.discountValue,
+      discountType: coupon.discountType,
+      minimumOrderValue: coupon.minimumOrderValue,
+      _id: coupon._id,
+
+      // Calculated values
+      discountAmount: Math.round(discountAmount),
+      finalAmount: Math.round(finalAmount),
     });
   } catch (err) {
     console.log(err);
