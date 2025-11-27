@@ -1,4 +1,5 @@
 import Order from "../models/order.model.js";
+import Coupon from "../models/coupon.model.js";
 
 // CREATE NEW ORDER
 export const createOrder = async (req, res) => {
@@ -8,16 +9,30 @@ export const createOrder = async (req, res) => {
       shippingAddress,
       additionalInfo,
       items,
+
+      // Financials
+      subtotal,
+      discountAmount,
       totalAmount,
+
+      // Coupon
+      couponCode,
+
+      // Payment
       paymentMethod,
+      paymentStatus,
+      transactionId,
+
       orderStatus,
     } = req.body;
 
+    // Validate required fields
     if (
       !customerDetails ||
       !shippingAddress ||
       !items ||
       items.length === 0 ||
+      !subtotal ||
       !totalAmount
     ) {
       return res.status(400).json({
@@ -26,14 +41,33 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    // If coupon is applied, update usage count
+    if (couponCode) {
+      await Coupon.findOneAndUpdate(
+        { code: couponCode.toUpperCase() },
+        { $inc: { usedCount: 1 } },
+        { new: true }
+      );
+    }
+
+    // Create order object
     const newOrder = new Order({
       customerDetails,
       shippingAddress,
       additionalInfo,
       items,
+
+      subtotal,
+      discountAmount,
       totalAmount,
+
+      couponCode: couponCode || null,
+
       paymentMethod,
-      orderStatus,
+      paymentStatus,
+      transactionId,
+
+      orderStatus: orderStatus || "Pending",
     });
 
     await newOrder.save();

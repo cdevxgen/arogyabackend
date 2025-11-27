@@ -18,10 +18,6 @@ const orderSchema = new mongoose.Schema(
       country: { type: String, default: "India" },
     },
 
-    additionalInfo: {
-      notes: { type: String },
-    },
-
     items: [
       {
         productId: { type: String, required: true },
@@ -34,9 +30,40 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
-    totalAmount: { type: Number, required: true },
-    paymentMethod: { type: String, default: "Cash on Delivery" },
-    orderStatus: { type: String, default: "Pending" },
+    // 💰 Financials
+    subtotal: { type: Number, required: true }, // BEFORE discount
+    discountAmount: { type: Number, default: 0 }, // discount value
+    totalAmount: { type: Number, required: true }, // AFTER discount
+
+    // 🎟 Coupon Info
+    couponCode: { type: String, default: null },
+
+    // 💳 Payment Details
+    paymentMethod: {
+      type: String,
+      default: "Cash on Delivery",
+      enum: ["Cash on Delivery", "Online Payment"],
+    },
+
+    paymentStatus: {
+      type: String,
+      default: "Pending",
+      enum: ["Pending", "Paid", "Failed"],
+    },
+
+    transactionId: { type: String, default: null },
+
+    // 📦 Order Progress
+    orderStatus: {
+      type: String,
+      default: "Pending",
+      enum: ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"],
+    },
+
+    // 📝 Additional Info
+    additionalInfo: {
+      notes: { type: String },
+    },
   },
   { timestamps: true }
 );
