@@ -94,7 +94,7 @@ export const getAllOrders = async (req, res) => {
   }
 };
 
-// TRACK ORDER BY PHONE
+// TRACK ORDERS BY PHONE (RETURN MULTIPLE)
 export const trackOrder = async (req, res) => {
   try {
     const { phone } = req.query;
@@ -106,20 +106,21 @@ export const trackOrder = async (req, res) => {
       });
     }
 
-    const order = await Order.findOne({
+    const orders = await Order.find({
       "customerDetails.phone": phone,
-    }).sort({ createdAt: -1 }); // latest order
+    }).sort({ createdAt: -1 }); // Newest first
 
-    if (!order) {
+    if (!orders || orders.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No order found for this phone number",
+        message: "No orders found for this phone number",
       });
     }
 
     res.status(200).json({
       success: true,
-      order,
+      count: orders.length,
+      orders,
     });
   } catch (err) {
     console.error("Tracking error:", err);
