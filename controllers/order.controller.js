@@ -205,7 +205,7 @@ export const getOrderById = async (req, res) => {
    🔍 TRACK ORDERS BY PHONE / EMAIL / BOTH (Public)
    GET /api/orders/track?phone=xxxx&email=xxx
 ====================================================== */
-export const trackOrder = async (req, res) => {
+export const trackOrderByPhone = async (req, res) => {
   try {
     const { phone, email } = req.query;
 
