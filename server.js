@@ -10,6 +10,7 @@ import authRouter from "./routes/auth.router.js";
 import blogRouter from "./routes/blog.router.js";
 import customerRoutes from "./routes/customer.router.js";
 import reviewRoutes from "./routes/review.router.js";
+import paymentRoutes from "./routes/payment.router.js";
 
 // ✅ CREATE APP FIRST
 const app = express();
@@ -34,6 +35,9 @@ app.use(
 
 // ✅ CONNECT DB
 connectDB();
+
+//payment razorpay
+app.use("/api/payment", paymentRoutes);
 
 // ✅ ROUTES (AFTER app IS DEFINED)
 app.use("/api/auth", authRouter);
