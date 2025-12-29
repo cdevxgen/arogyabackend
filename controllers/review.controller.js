@@ -1,8 +1,9 @@
 import Review from "../models/review.model.js";
 
+/* ================= CUSTOMER ================= */
+
 /**
- * CREATE REVIEW (Customer)
- * POST /api/v4/proreviews
+ * CREATE REVIEW
  */
 export const createReview = async (req, res) => {
   try {
@@ -35,8 +36,35 @@ export const createReview = async (req, res) => {
 };
 
 /**
- * GET APPROVED REVIEWS (Public)
- * GET /api/v4/proreviews/:productId
+ * GET MY REVIEW
+ */
+export const getMyReview = async (req, res) => {
+  const review = await Review.findOne({
+    productId: req.params.productId,
+    customerId: req.customer._id,
+  });
+
+  res.json(review);
+};
+
+/**
+ * DELETE MY REVIEW
+ */
+export const deleteMyReview = async (req, res) => {
+  const review = await Review.findOneAndDelete({
+    _id: req.params.reviewId,
+    customerId: req.customer._id,
+  });
+
+  if (!review) return res.status(404).json({ message: "Review not found" });
+
+  res.json({ message: "Your review deleted successfully" });
+};
+
+/* ================= PUBLIC ================= */
+
+/**
+ * GET APPROVED REVIEWS
  */
 export const getApprovedReviews = async (req, res) => {
   const reviews = await Review.find({
@@ -49,15 +77,74 @@ export const getApprovedReviews = async (req, res) => {
   res.json(reviews);
 };
 
+/* ================= ADMIN ================= */
+
 /**
- * GET MY REVIEW FOR PRODUCT (Customer)
- * GET /api/v4/proreviews/my/:productId
+ * GET ALL REVIEWS
  */
-export const getMyReview = async (req, res) => {
-  const review = await Review.findOne({
-    productId: req.params.productId,
-    customerId: req.customer._id,
-  });
+export const getAllReviews = async (req, res) => {
+  const { status } = req.query;
+
+  const filter = status ? { status } : {};
+
+  const reviews = await Review.find(filter)
+    .populate("customerId", "name email")
+    .populate("productId", "name")
+    .sort({ createdAt: -1 });
+
+  res.json(reviews);
+};
+
+/**
+ * GET REVIEW BY ID
+ */
+export const getReviewById = async (req, res) => {
+  const review = await Review.findById(req.params.id)
+    .populate("customerId", "name email")
+    .populate("productId", "name");
+
+  if (!review) return res.status(404).json({ message: "Review not found" });
 
   res.json(review);
+};
+
+/**
+ * APPROVE REVIEW
+ */
+export const approveReview = async (req, res) => {
+  const review = await Review.findByIdAndUpdate(
+    req.params.id,
+    { status: "approved" },
+    { new: true }
+  );
+
+  if (!review) return res.status(404).json({ message: "Review not found" });
+
+  res.json({ message: "Review approved", review });
+};
+
+/**
+ * REJECT REVIEW
+ */
+export const rejectReview = async (req, res) => {
+  const review = await Review.findByIdAndUpdate(
+    req.params.id,
+    { status: "rejected" },
+    { new: true }
+  );
+
+  if (!review) return res.status(404).json({ message: "Review not found" });
+
+  res.json({ message: "Review rejected", review });
+};
+
+/**
+ * DELETE REVIEW (ADMIN)
+ */
+export const deleteReview = async (req, res) => {
+  const review = await Review.findByIdAndDelete(req.params.id);
+
+  if (!review) return res.status(404).json({ message: "Review not found" });
+
+  res.json({ message: "Review deleted successfully" });
 };
