@@ -26,7 +26,7 @@ app.use(
       "https://arogyaguru.in",
       "https://www.arogyaguru.in",
     ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
   })
