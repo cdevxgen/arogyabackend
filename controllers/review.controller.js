@@ -111,31 +111,42 @@ export const getReviewById = async (req, res) => {
 /**
  * APPROVE REVIEW
  */
-export const approveReview = async (req, res) => {
-  const review = await Review.findByIdAndUpdate(
-    req.params.id,
-    { status: "approved" },
-    { new: true }
-  );
+export const approveReview = async (req, res, next) => {
+  try {
+    const review = await Review.findById(req.params.id);
 
-  if (!review) return res.status(404).json({ message: "Review not found" });
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
 
-  res.json({ message: "Review approved", review });
+    // ✅ FIX: Update 'status', not 'isApproved'
+    review.status = "approved";
+
+    const updatedReview = await review.save();
+
+    res.status(200).json(updatedReview);
+  } catch (err) {
+    next(err);
+  }
 };
 
-/**
- * REJECT REVIEW
- */
-export const rejectReview = async (req, res) => {
-  const review = await Review.findByIdAndUpdate(
-    req.params.id,
-    { status: "rejected" },
-    { new: true }
-  );
+export const rejectReview = async (req, res, next) => {
+  try {
+    const review = await Review.findById(req.params.id);
 
-  if (!review) return res.status(404).json({ message: "Review not found" });
+    if (!review) {
+      return res.status(404).json({ message: "Review not found" });
+    }
 
-  res.json({ message: "Review rejected", review });
+    // ✅ FIX: Update 'status' to 'rejected' (or 'pending' if you just want to hide it)
+    review.status = "rejected";
+
+    const updatedReview = await review.save();
+
+    res.status(200).json(updatedReview);
+  } catch (err) {
+    next(err);
+  }
 };
 
 /**
