@@ -202,23 +202,33 @@ export const getOrderById = async (req, res) => {
 };
 
 /* ======================================================
-   🔍 TRACK ORDERS BY PHONE
-   (Public)
+   🔍 TRACK ORDERS BY PHONE / EMAIL / BOTH (Public)
+   GET /api/orders/track?phone=xxxx&email=xxx
 ====================================================== */
-export const trackOrderByPhone = async (req, res) => {
+export const trackOrder = async (req, res) => {
   try {
-    const { phone } = req.query;
+    const { phone, email } = req.query;
 
-    if (!phone) {
+    // At least one field must be provided
+    if (!phone && !email) {
       return res.status(400).json({
         success: false,
-        message: "Phone number is required",
+        message: "Phone number or email is required",
       });
     }
 
-    const orders = await Order.find({
-      "customerDetails.phone": phone,
-    }).sort({ createdAt: -1 });
+    // Build dynamic query
+    const query = {};
+
+    if (phone) {
+      query["customerDetails.phone"] = phone;
+    }
+
+    if (email) {
+      query["customerDetails.email"] = email.toLowerCase();
+    }
+
+    const orders = await Order.find(query).sort({ createdAt: -1 });
 
     if (!orders.length) {
       return res.status(404).json({
