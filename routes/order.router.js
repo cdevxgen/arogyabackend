@@ -2,7 +2,7 @@ import express from "express";
 import {
   createOrder,
   getAllOrders,
-  trackOrder,
+  trackOrderByPhone as trackOrder,
   getOrderById,
   deleteOrder,
   deleteMultipleOrders,
