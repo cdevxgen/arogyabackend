@@ -2,7 +2,7 @@ import express from "express";
 import {
   createOrder,
   getAllOrders,
-  trackOrderByPhone as trackOrder,
+  trackOrder, // renamed (important)
   getOrderById,
   deleteOrder,
   deleteMultipleOrders,
@@ -11,15 +11,17 @@ import {
 
 const router = express.Router();
 
-router.post("/", createOrder); // Place new order
-router.get("/", getAllOrders); // Fetch all orders
+// Customer
+router.post("/", createOrder);
 
-router.get("/track", trackOrder);
-router.get("/:id", getOrderById);
-
+// Admin
+router.get("/", getAllOrders);
+router.put("/:id", updateOrder);
 router.delete("/:id", deleteOrder);
-
 router.post("/bulk-delete", deleteMultipleOrders);
-router.put("/:id", updateOrder); // ⭐ update/edit order
+
+// Public / Customer
+router.get("/track", trackOrder); // phone/email tracking
+router.get("/:id", getOrderById); // order id tracking
 
 export default router;

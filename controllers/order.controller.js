@@ -177,9 +177,7 @@ export const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const order = await Order.findById(id)
-      .populate("customerId", "name email")
-      .populate("couponId", "code discountType discountValue");
+    const order = await Order.findById(id);
 
     if (!order) {
       return res.status(404).json({
@@ -190,7 +188,7 @@ export const getOrderById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      order,
+      order, // frontend already normalizes this
     });
   } catch (err) {
     console.error("Get order error:", err);
@@ -202,14 +200,16 @@ export const getOrderById = async (req, res) => {
 };
 
 /* ======================================================
-   🔍 TRACK ORDERS BY PHONE / EMAIL / BOTH (Public)
-   GET /api/orders/track?phone=xxxx&email=xxx
+   🔍 TRACK ORDERS (Public + Logged-in)
+   Supports:
+   - phone
+   - email
+   - phone + email (best match)
 ====================================================== */
-export const trackOrderByPhone = async (req, res) => {
+export const trackOrder = async (req, res) => {
   try {
     const { phone, email } = req.query;
 
-    // At least one field must be provided
     if (!phone && !email) {
       return res.status(400).json({
         success: false,
@@ -217,7 +217,6 @@ export const trackOrderByPhone = async (req, res) => {
       });
     }
 
-    // Build dynamic query
     const query = {};
 
     if (phone) {
@@ -229,13 +228,6 @@ export const trackOrderByPhone = async (req, res) => {
     }
 
     const orders = await Order.find(query).sort({ createdAt: -1 });
-
-    if (!orders.length) {
-      return res.status(404).json({
-        success: false,
-        message: "No orders found",
-      });
-    }
 
     return res.status(200).json({
       success: true,
