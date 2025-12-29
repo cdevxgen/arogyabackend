@@ -9,9 +9,12 @@ import {
   forgotPassword,
   resetPassword,
   deleteAccount,
+  getAllCustomers,
 } from "../controllers/customer.controller.js";
 
 import { customerProtect } from "../middleware/customer.middleware.js";
+
+import { protect, adminOnly } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -27,5 +30,7 @@ router.get("/me", customerProtect, getProfile);
 router.put("/me", customerProtect, updateProfile);
 router.put("/change-password", customerProtect, changePassword);
 router.delete("/me", customerProtect, deleteAccount);
+
+router.get("/", protect, adminOnly, getAllCustomers);
 
 export default router;

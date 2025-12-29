@@ -166,3 +166,20 @@ export const deleteAccount = async (req, res) => {
   await Customer.findByIdAndDelete(req.customer._id);
   res.json({ message: "Account deleted successfully" });
 };
+
+// ---------- Get All Customers (Admin Only) ----------
+export const getAllCustomers = async (req, res) => {
+  try {
+    const customers = await Customer.find()
+      .select("-password -resetPasswordToken -resetPasswordExpire")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: customers.length,
+      customers,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

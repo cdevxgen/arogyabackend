@@ -32,6 +32,8 @@ app.use("/api/auth", authRouter);
 
 app.use("/api/customer", customerRoutes);
 
+app.use("/api/v4/customers", customerRoutes);
+
 // API Routes
 app.use("/api/v4/products", productRouter);
 app.use("/api/v4/orders", orderRouter);
