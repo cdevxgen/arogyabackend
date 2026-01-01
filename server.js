@@ -11,6 +11,7 @@ import blogRouter from "./routes/blog.router.js";
 import customerRoutes from "./routes/customer.router.js";
 import reviewRoutes from "./routes/review.router.js";
 import paymentRoutes from "./routes/payment.router.js";
+import quoteRoutes from "./routes/quoteRequest.router.js";
 
 // ✅ CREATE APP FIRST
 const app = express();
@@ -51,6 +52,8 @@ app.use("/api/v4/products", productRouter);
 app.use("/api/v4/orders", orderRouter);
 app.use("/api/v4/coupons", couponRouter);
 app.use("/api/v4/blogs", blogRouter);
+
+app.use("/api/v4/quotes", quoteRoutes);
 
 // ✅ HEALTH CHECK
 app.get("/", (req, res) => {
