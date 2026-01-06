@@ -502,7 +502,10 @@ const seedData = {
     {
       _id: "malt_ragi",
       type: "cereal_based",
-      name: { en: "Sprouted Ragi Malt", kn: "ಮೊಳಕೆ ಬರಿಸಿದ ರಾಗಿ ಗಂಜಿ" },
+      name: {
+        en: "Sprouted Ragi Malt",
+        kn: "ಮೊಳಕೆ ಬರಿಸಿದ ರಾಗಿ ಗಂಜಿ",
+      },
       description: {
         en: "Calcium powerhouse drink suitable for all ages.",
         kn: "ಎಲ್ಲಾ ವಯಸ್ಸಿನವರಿಗೆ ಸೂಕ್ತವಾದ ಕ್ಯಾಲ್ಸಿಯಂ ಯುಕ್ತ ಪಾನೀಯ.",
@@ -534,15 +537,23 @@ const seedData = {
           "ನಿರಂತರ ಶಕ್ತಿ ನೀಡುತ್ತದೆ",
         ],
       },
+      image_config: {
+        url: "https://res.cloudinary.com/dcbmadhmo/image/upload/v1767690761/malts8_tskaak.jpg",
+        alt_text: "Sprouted ragi malt served hot in a clay cup",
+      },
       is_active: true,
     },
+
     {
       _id: "malt_millets",
       type: "cereal_based",
-      name: { en: "Siridhanya (Millet) Malt", kn: "ಸಿರಿಧಾನ್ಯ ಗಂಜಿ" },
+      name: {
+        en: "Siridhanya (Millet) Malt",
+        kn: "ಸಿರಿಧಾನ್ಯ ಗಂಜಿ",
+      },
       description: {
         en: "A low-glycemic drink made from Foxtail or Little Millet.",
-        kn: "ನವಣೆ ಅಥವಾ ಸಾಮೆ ಅಕ್ಕಿಯಿಂದ ಮಾಡಿದ ಕಡಿಮೆ ಸಕ್ಕರೆ ಅಂಶದ ಪಾನೀಯ.",
+        kn: "ನವಣೆ ಅಥವಾ ಸಾಮೆ ಅಕ್ಕಿಯಿಂದ 만든 ಕಡಿಮೆ ಸಕ್ಕರೆ ಅಂಶದ ಪಾನೀಯ.",
       },
       ingredients: {
         en: ["2 tbsp Millet flour", "Water", "Vegetables (optional)"],
@@ -558,12 +569,20 @@ const seedData = {
         en: ["Diabetes control", "Easy digestion", "Gluten-free"],
         kn: ["ಮಧುಮೇಹ ನಿಯಂತ್ರಣ", "ಸುಲಭ ಜೀರ್ಣಕ್ರಿಯೆ", "ಗ್ಲುಟನ್ ಮುಕ್ತ"],
       },
+      image_config: {
+        url: "https://res.cloudinary.com/dcbmadhmo/image/upload/v1767690761/malts10_gb3stc.jpg",
+        alt_text: "Siridhanya millet malt in ceramic bowl",
+      },
       is_active: true,
     },
+
     {
       _id: "malt_ashgourd",
       type: "vegetable_based",
-      name: { en: "Ash Gourd Juice (Winter Melon)", kn: "ಬೂದುಗುಂಬಳಕಾಯಿ ರಸ" },
+      name: {
+        en: "Ash Gourd Juice (Winter Melon)",
+        kn: "ಬೂದುಗುಂಬಳಕಾಯಿ ರಸ",
+      },
       description: {
         en: "The highest pranic energy food, excellent for brain and nerves.",
         kn: "ಅತ್ಯುನ್ನತ ಪ್ರಾಣಶಕ್ತಿ ಹೊಂದಿರುವ ಆಹಾರ, ಮೆದುಳು ಮತ್ತು ನರಗಳಿಗೆ ಅತ್ಯುತ್ತಮ.",
@@ -585,6 +604,10 @@ const seedData = {
           "ಬುದ್ಧಿಶಕ್ತಿ ಚುರುಕುಗೊಳಿಸುತ್ತದೆ",
           "ಕ್ಷಾರೀಯ ಗುಣ ಹೊಂದಿದೆ",
         ],
+      },
+      image_config: {
+        url: "https://res.cloudinary.com/dcbmadhmo/image/upload/v1767690764/malts9_ngikjl.jpg",
+        alt_text: "Fresh ash gourd juice served in clear glass",
       },
       is_active: true,
     },

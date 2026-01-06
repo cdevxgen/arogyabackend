@@ -1,5 +1,24 @@
 import mongoose from "mongoose";
 
+const ProductInterestSchema = new mongoose.Schema(
+  {
+    id: {
+      type: String,
+      required: true, // soup_id or malt_id
+    },
+    name: {
+      type: String,
+      required: true, // readable label
+    },
+    type: {
+      type: String,
+      enum: ["soup", "malt"],
+      required: true,
+    },
+  },
+  { _id: false }
+);
+
 const quoteRequestSchema = new mongoose.Schema(
   {
     name: {
@@ -43,9 +62,9 @@ const quoteRequestSchema = new mongoose.Schema(
       min: 10,
     },
 
-    category: {
-      value: { type: String },
-      label: { type: String },
+    productInterest: {
+      type: ProductInterestSchema,
+      required: true,
     },
 
     status: {

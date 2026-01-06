@@ -1,8 +1,8 @@
 import QuoteRequest from "../models/quoteRequest.model.js";
 
 /**
- * CREATE QUOTE REQUEST
- * POST /api/v1/quotes
+ * CREATE QUOTE REQUEST (Public)
+ * POST /api/v4/quotes
  */
 export const createQuoteRequest = async (req, res) => {
   try {
@@ -14,11 +14,21 @@ export const createQuoteRequest = async (req, res) => {
       location,
       eventDate,
       guestCount,
-      category,
+      productInterest,
     } = req.body;
 
-    // Basic validation
-    if (!name || !email || !phone || !location || !eventDate || !guestCount) {
+    // Required validation
+    if (
+      !name ||
+      !email ||
+      !phone ||
+      !location ||
+      !eventDate ||
+      !guestCount ||
+      !productInterest?.id ||
+      !productInterest?.name ||
+      !productInterest?.type
+    ) {
       return res.status(400).json({
         success: false,
         message: "All required fields must be provided",
@@ -33,7 +43,7 @@ export const createQuoteRequest = async (req, res) => {
       location,
       eventDate,
       guestCount,
-      category,
+      productInterest,
     });
 
     return res.status(201).json({
@@ -52,7 +62,7 @@ export const createQuoteRequest = async (req, res) => {
 
 /**
  * GET ALL QUOTE REQUESTS (Admin)
- * GET /api/v1/quotes
+ * GET /api/v4/quotes
  */
 export const getAllQuoteRequests = async (req, res) => {
   try {
@@ -74,7 +84,7 @@ export const getAllQuoteRequests = async (req, res) => {
 
 /**
  * GET SINGLE QUOTE REQUEST
- * GET /api/v1/quotes/:id
+ * GET /api/v4/quotes/:id
  */
 export const getSingleQuoteRequest = async (req, res) => {
   try {
@@ -102,11 +112,18 @@ export const getSingleQuoteRequest = async (req, res) => {
 
 /**
  * UPDATE QUOTE STATUS (Admin)
- * PATCH /api/v1/quotes/:id
+ * PATCH /api/v4/quotes/:id/status
  */
 export const updateQuoteStatus = async (req, res) => {
   try {
     const { status } = req.body;
+
+    if (!["new", "contacted", "confirmed", "cancelled"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status value",
+      });
+    }
 
     const quote = await QuoteRequest.findByIdAndUpdate(
       req.params.id,
@@ -137,7 +154,7 @@ export const updateQuoteStatus = async (req, res) => {
 
 /**
  * DELETE QUOTE REQUEST (Admin)
- * DELETE /api/v1/quotes/:id
+ * DELETE /api/v4/quotes/:id
  */
 export const deleteQuoteRequest = async (req, res) => {
   try {
