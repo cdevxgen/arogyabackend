@@ -52,7 +52,7 @@ export const createShiprocketOrder = async (order, dimensions = {}) => {
     order_id: order._id.toString(),
     order_date: formattedDate,
 
-    pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION,
+    pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION, //updated
 
     billing_customer_name: order.customerDetails.firstName,
     billing_last_name: order.customerDetails.lastName || "",
