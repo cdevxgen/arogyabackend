@@ -12,6 +12,8 @@ import {
   getAllCustomers,
 } from "../controllers/customer.controller.js";
 
+import { sendOtp, verifyOtp } from "../controllers/otp.controller.js";
+
 import { customerProtect } from "../middleware/customer.middleware.js";
 
 import { protect, adminOnly } from "../middleware/auth.middleware.js";
@@ -32,5 +34,9 @@ router.put("/change-password", customerProtect, changePassword);
 router.delete("/me", customerProtect, deleteAccount);
 
 router.get("/", protect, adminOnly, getAllCustomers);
+
+// OTP (Public)
+router.post("/otp/send", sendOtp);
+router.post("/otp/verify", verifyOtp);
 
 export default router;

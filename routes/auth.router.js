@@ -9,7 +9,6 @@ import {
   updateUser,
   deleteUser,
 } from "../controllers/auth.controller.js";
-import { sendOtp, verifyOtp } from "../controllers/otp.controller.js";
 
 import { protect, adminOnly } from "../middleware/auth.middleware.js";
 
@@ -28,9 +27,5 @@ router.get("/all-users", protect, adminOnly, getAllUsers);
 // 👉 NEW: Update & Delete User
 router.put("/:id", protect, adminOnly, updateUser);
 router.delete("/:id", protect, adminOnly, deleteUser);
-
-// OTP (Public)
-router.post("/otp/send", sendOtp);
-router.post("/otp/verify", verifyOtp);
 
 export default router;
