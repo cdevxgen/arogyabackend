@@ -7,6 +7,8 @@ import {
   deleteOrder,
   deleteMultipleOrders,
   updateOrder,
+  shipOrder,
+  trackOrderByNumber,
 } from "../controllers/order.controller.js";
 
 const router = express.Router();
@@ -19,6 +21,8 @@ router.get("/", getAllOrders);
 router.put("/:id", updateOrder);
 router.delete("/:id", deleteOrder);
 router.post("/bulk-delete", deleteMultipleOrders);
+router.post("/:id/ship", shipOrder); // 🚚 Shiprocket integration
+router.get("/track/:orderNumber", trackOrderByNumber);
 
 // Public / Customer
 router.get("/track", trackOrder); // phone/email tracking

@@ -1,5 +1,9 @@
 import Order from "../models/order.model.js";
 import Coupon from "../models/coupon.model.js";
+import {
+  createShiprocketOrder,
+  trackShiprocketOrder,
+} from "../services/shiprocket.service.js";
 
 /* ======================================================
    🛒 CREATE NEW ORDER
@@ -334,6 +338,126 @@ export const deleteMultipleOrders = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+    });
+  }
+};
+
+/* ======================================================
+   🚚 SHIP ORDER (ADMIN ONLY)
+====================================================== */
+export const shipOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const order = await Order.findById(id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // Prevent double shipping
+    if (order.tracking?.shipmentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Order already shipped",
+      });
+    }
+
+    if (order.orderStatus !== "Confirmed") {
+      return res.status(400).json({
+        success: false,
+        message: "Order must be confirmed before shipping",
+      });
+    }
+
+    // Call Shiprocket
+    const sr = await createShiprocketOrder(order);
+
+    if (!sr?.shipment_id) {
+      throw new Error("Invalid Shiprocket response");
+    }
+
+    // Save tracking info
+    order.tracking = {
+      shipmentId: sr.shipment_id,
+      awbCode: sr.awb_code || null,
+      courierName: sr.courier_name || null,
+      status: "Shipped",
+    };
+
+    order.orderStatus = "Shipped";
+    await order.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Order shipped successfully",
+      tracking: {
+        shipmentId: order.tracking.shipmentId,
+        awbCode: order.tracking.awbCode,
+        courierName: order.tracking.courierName,
+      },
+    });
+  } catch (err) {
+    console.error("Ship order error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Shipping failed",
+    });
+  }
+};
+
+/* ======================================================
+   📦 TRACK ORDER BY ORDER NUMBER (PUBLIC)
+====================================================== */
+export const trackOrderByNumber = async (req, res) => {
+  try {
+    const { orderNumber } = req.params;
+
+    const order = await Order.findById(orderNumber);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // If not shipped yet
+    if (!order.tracking?.shipmentId) {
+      return res.status(200).json({
+        success: true,
+        orderStatus: order.orderStatus,
+        message: "Order is not shipped yet",
+      });
+    }
+
+    // Fetch live tracking from Shiprocket
+    const trackingData = await trackShiprocketOrder(order.tracking.shipmentId);
+
+    // Optional: save latest tracking snapshot
+    order.tracking.status = trackingData.current_status;
+    order.tracking.history = trackingData.shipment_track_activities || [];
+    await order.save();
+
+    return res.status(200).json({
+      success: true,
+      orderId: order._id,
+      orderStatus: order.orderStatus,
+      tracking: {
+        courier: trackingData.courier_name,
+        awb: trackingData.awb_code,
+        currentStatus: trackingData.current_status,
+        history: trackingData.shipment_track_activities,
+      },
+    });
+  } catch (err) {
+    console.error("Tracking error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to fetch tracking details",
     });
   }
 };

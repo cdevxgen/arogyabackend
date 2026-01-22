@@ -137,6 +137,16 @@ const orderSchema = new mongoose.Schema(
       refundTransactionId: { type: String },
       refundedAt: { type: Date },
     },
+
+    //shiprocket
+
+    tracking: {
+      shipmentId: { type: String },
+      awbCode: { type: String },
+      courierName: { type: String },
+      status: { type: String },
+      history: { type: Array, default: [] },
+    },
   },
   {
     timestamps: true,
