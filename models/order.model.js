@@ -7,7 +7,7 @@ const orderSchema = new mongoose.Schema(
     =============================== */
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Customer", // or "User" based on your auth model
+      ref: "Customer",
       required: true,
       index: true,
     },
@@ -18,6 +18,8 @@ const orderSchema = new mongoose.Schema(
     customerDetails: {
       firstName: { type: String, required: true, trim: true },
       lastName: { type: String, required: true, trim: true },
+      // Storing the full name often helps with logistics labels
+      name: { type: String },
       email: { type: String, required: true, lowercase: true },
       phone: { type: String, required: true },
     },
@@ -26,11 +28,14 @@ const orderSchema = new mongoose.Schema(
        🚚 SHIPPING ADDRESS
     =============================== */
     shippingAddress: {
+      name: { type: String }, // Added to match Shiprocket payload
+      phone: { type: String }, // Added to match Shiprocket payload
       addressLine1: { type: String, required: true },
       addressLine2: { type: String },
       city: { type: String, required: true },
       state: { type: String, required: true },
-      pincode: { type: String, required: true },
+      // Changed to Number because Shiprocket requires Int
+      pincode: { type: Number, required: true },
       country: { type: String, default: "India" },
     },
 
@@ -45,11 +50,26 @@ const orderSchema = new mongoose.Schema(
           required: true,
         },
         title: { type: String, required: true },
-        variantLabel: { type: String }, // weight / size
+        variantLabel: { type: String },
         flavorName: { type: String },
+        image: { type: String },
+
+        // Standard Internal Fields
         quantity: { type: Number, required: true, min: 1 },
         pricePerUnit: { type: Number, required: true },
-        image: { type: String },
+
+        // --- SHIPROCKET SPECIFIC FIELDS ---
+        sku: { type: String, default: "" },
+        units: { type: Number }, // Maps to quantity
+        selling_price: { type: Number }, // Maps to pricePerUnit
+        discount: { type: Number, default: 0 },
+        tax: { type: Number, default: 0 },
+
+        // Dimensions & Weight (Crucial for Shipping Calculation)
+        length: { type: Number, default: 10 },
+        breadth: { type: Number, default: 10 },
+        height: { type: Number, default: 10 },
+        weight: { type: Number, default: 0.5 },
       },
     ],
 
@@ -75,7 +95,8 @@ const orderSchema = new mongoose.Schema(
     =============================== */
     paymentMethod: {
       type: String,
-      enum: ["Cash on Delivery", "Online Payment"],
+      // Updated to match the frontend "Prepaid" which Shiprocket prefers over "Online Payment"
+      enum: ["Cash on Delivery", "Online Payment", "Prepaid", "COD"],
       default: "Cash on Delivery",
     },
 
@@ -88,12 +109,6 @@ const orderSchema = new mongoose.Schema(
 
     transactionId: { type: String, default: null },
 
-    paymentGateway: {
-      type: String,
-      enum: ["razorpay", "stripe", "cashfree", "manual"],
-      default: null,
-    },
-
     /* ===============================
        📦 ORDER STATUS
     =============================== */
@@ -101,52 +116,45 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: [
         "Pending",
+        "Processing",
         "Confirmed",
         "Packed",
         "Shipped",
         "Delivered",
         "Cancelled",
         "Returned",
+        "RTO", // Added RTO as it's common in logistics
       ],
       default: "Pending",
       index: true,
     },
-
-    trackingNumber: { type: String, default: null },
-    courierPartner: { type: String, default: null },
 
     /* ===============================
        📝 ADDITIONAL INFO
     =============================== */
     additionalInfo: {
       notes: { type: String },
-      orderSource: {
-        type: String,
-        enum: ["web", "mobile"],
-        default: "web",
-      },
+      orderSource: { type: String, default: "web" },
       ipAddress: { type: String },
+      // Optional: Store the specific string date sent to Shiprocket if needed for debugging
+      shiprocketOrderDate: { type: String },
     },
 
     /* ===============================
-       🔁 REFUND INFO (FUTURE SAFE)
+       🚀 LOGISTICS TRACKING (Shiprocket)
     =============================== */
-    refund: {
-      refunded: { type: Boolean, default: false },
-      refundAmount: { type: Number, default: 0 },
-      refundTransactionId: { type: String },
-      refundedAt: { type: Date },
-    },
-
-    //shiprocket
-
     tracking: {
       shipmentId: { type: String },
+      orderId: { type: String }, // Shiprocket's internal Order ID
       awbCode: { type: String },
       courierName: { type: String },
-      status: { type: String },
+      status: { type: String }, // e.g., "PICKED UP", "IN TRANSIT"
       history: { type: Array, default: [] },
     },
+
+    // Legacy support (optional, can be removed if strictly using tracking object)
+    trackingNumber: { type: String, default: null },
+    courierPartner: { type: String, default: null },
   },
   {
     timestamps: true,
@@ -155,10 +163,11 @@ const orderSchema = new mongoose.Schema(
 );
 
 /* ===============================
-   📌 INDEXES (PERFORMANCE)
+   📌 INDEXES
 =============================== */
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ customerId: 1, createdAt: -1 });
+orderSchema.index({ "tracking.awbCode": 1 }); // Useful for tracking lookups
 
 const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
 

@@ -1,4 +1,5 @@
-import fetch from "node-fetch"; // Ensure you have this or use native fetch in Node 18+
+/* services/shiprocket.service.js */
+import fetch from "node-fetch"; // Ensure node-fetch is installed or use native fetch in Node 18+
 
 let shiprocketToken = null;
 let tokenExpiry = null;
@@ -9,124 +10,182 @@ const SHIPROCKET_BASE_URL = "https://apiv2.shiprocket.in/v1/external";
    🔐 GET / CACHE TOKEN
 ================================ */
 export const getShiprocketToken = async () => {
-  if (shiprocketToken && tokenExpiry > Date.now()) {
+  // Return cached token if valid (buffer of 10 mins)
+  if (shiprocketToken && tokenExpiry > Date.now() + 10 * 60 * 1000) {
     return shiprocketToken;
   }
 
-  const response = await fetch(`${SHIPROCKET_BASE_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: process.env.SHIPROCKET_EMAIL,
-      password: process.env.SHIPROCKET_PASSWORD,
-    }),
-  });
+  try {
+    const response = await fetch(`${SHIPROCKET_BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: process.env.SHIPROCKET_EMAIL,
+        password: process.env.SHIPROCKET_PASSWORD,
+      }),
+    });
 
-  const data = await response.json();
+    const data = await response.json();
 
-  if (!response.ok) {
-    throw new Error(data.message || "Shiprocket auth failed");
+    if (!response.ok) {
+      throw new Error(data.message || "Shiprocket auth failed");
+    }
+
+    shiprocketToken = data.token;
+    // Token valid for 24 hours usually, but we refresh every 8 hours to be safe
+    tokenExpiry = Date.now() + 8 * 60 * 60 * 1000;
+
+    return shiprocketToken;
+  } catch (error) {
+    console.error("Shiprocket Auth Error:", error.message);
+    throw error;
   }
-
-  shiprocketToken = data.token;
-  tokenExpiry = Date.now() + 8 * 60 * 60 * 1000; // 8 hours
-
-  return shiprocketToken;
 };
 
 /* ===============================
    📦 CREATE SHIPROCKET ORDER
 ================================ */
-/* services/shiprocket.service.js */
-
 export const createShiprocketOrder = async (order, dimensions = {}) => {
   const token = await getShiprocketToken();
 
-  // Format Date: YYYY-MM-DD HH:mm
-  const date = new Date();
-  const formattedDate = date.toISOString().slice(0, 16).replace("T", " ");
+  // 1. FORMAT DATE: YYYY-MM-DD HH:mm
+  // Note: Shiprocket is strict about this format.
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
 
-  // 1. DIMENSIONS (Fallback to 10x10x10 if empty)
-  const finalLength = parseFloat(dimensions.length) || 10;
-  const finalBreadth = parseFloat(dimensions.breadth) || 10;
-  const finalHeight = parseFloat(dimensions.height) || 10;
-  const finalWeight = parseFloat(dimensions.weight) || 0.5;
+  // 2. DIMENSIONS (Priority: Override > Item Default > Fallback)
+  // We use the first item's dimensions if no override is provided
+  const firstItem = order.items[0] || {};
 
-  // 2. PICKUP LOCATION (Hardcoded fallback to 'Warehouse' to fix your specific error)
-  const pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || "Warehouse";
+  const finalLength = parseFloat(dimensions.length || firstItem.length || 10);
+  const finalBreadth = parseFloat(
+    dimensions.breadth || firstItem.breadth || 10
+  );
+  const finalHeight = parseFloat(dimensions.height || firstItem.height || 10);
+  const finalWeight = parseFloat(dimensions.weight || firstItem.weight || 0.5);
+
+  // 3. SANITIZE DATA
+  // Shiprocket fails if phone has spaces or pincode is a string
+  const cleanPhone = order.customerDetails.phone.replace(/\D/g, "").slice(-10); // Last 10 digits
+  const cleanPincode = parseInt(order.shippingAddress.pincode, 10);
+
+  // 4. PICKUP LOCATION
+  // Matches the "Pickup Location Nickname" in your Shiprocket Settings -> Pickup Addresses
+  const pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || "Primary";
 
   const payload = {
     order_id: order._id.toString(),
     order_date: formattedDate,
-    pickup_location: pickupLocation, // <--- MUST MATCH SHIPROCKET NICKNAME EXACTLY
+    pickup_location: pickupLocation,
 
+    // Billing Details
     billing_customer_name: order.customerDetails.firstName,
     billing_last_name: order.customerDetails.lastName || "",
-    billing_email: order.customerDetails.email,
-    billing_phone: order.customerDetails.phone,
     billing_address: order.shippingAddress.addressLine1,
     billing_address_2: order.shippingAddress.addressLine2 || "",
     billing_city: order.shippingAddress.city,
+    billing_pincode: cleanPincode, // Must be Integer
     billing_state: order.shippingAddress.state,
-    billing_pincode: order.shippingAddress.pincode,
     billing_country: "India",
+    billing_email: order.customerDetails.email,
+    billing_phone: cleanPhone,
 
+    // Shipping Details (Usually same as billing for e-commerce)
     shipping_is_billing: true,
 
+    // Order Items
     order_items: order.items.map((item) => ({
       name: item.title,
-      sku: item.productId ? item.productId.toString() : "SKU-DEFAULT",
-      units: parseInt(item.quantity),
+      sku: item.sku || item.productId.toString(),
+      units: parseInt(item.quantity || item.units, 10),
       selling_price: parseFloat(item.pricePerUnit),
+      discount: parseFloat(item.discount || 0),
+      tax: parseFloat(item.tax || 0),
     })),
 
+    // Payment Details
     payment_method:
       order.paymentMethod === "Cash on Delivery" ? "COD" : "Prepaid",
+    shipping_charges: 0,
+    giftwrap_charges: 0,
+    transaction_charges: 0,
+    total_discount: parseFloat(order.discountAmount || 0),
     sub_total: parseFloat(order.subtotal),
 
+    // Package Dimensions
     length: finalLength,
     breadth: finalBreadth,
     height: finalHeight,
     weight: finalWeight,
   };
 
-  const response = await fetch(`${SHIPROCKET_BASE_URL}/orders/create/adhoc`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const response = await fetch(`${SHIPROCKET_BASE_URL}/orders/create/adhoc`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
-  const data = await response.json();
+    const data = await response.json();
 
-  if (!response.ok || data.status_code === 422 || data.status_code === 400) {
-    console.error("❌ Shiprocket Error:", JSON.stringify(data));
-    const errorMessage = data.message || "Shiprocket API Error";
-    throw new Error(errorMessage);
+    // Check for specific API errors (400 Bad Request / 422 Unprocessable Entity)
+    if (!response.ok || data.status_code === 422 || data.status_code === 400) {
+      console.error(
+        "❌ Shiprocket Payload Failed:",
+        JSON.stringify(payload, null, 2)
+      );
+      console.error(
+        "❌ Shiprocket Response Error:",
+        JSON.stringify(data, null, 2)
+      );
+
+      // Extract specific error message if available
+      const msg =
+        data.message ||
+        (data.errors ? JSON.stringify(data.errors) : "Shiprocket API Error");
+      throw new Error(msg);
+    }
+
+    return data;
+  } catch (error) {
+    throw error;
   }
-
-  return data;
 };
 
+/* ===============================
+   🚚 TRACK ORDER
+================================ */
 export const trackShiprocketOrder = async (shipmentId) => {
   const token = await getShiprocketToken();
 
-  const response = await fetch(
-    `https://apiv2.shiprocket.in/v1/external/courier/track/shipment/${shipmentId}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+  try {
+    const response = await fetch(
+      `${SHIPROCKET_BASE_URL}/courier/track/shipment/${shipmentId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to fetch tracking details");
     }
-  );
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch tracking details");
+    // Shiprocket tracking response structure varies; usually data[shipmentId] or data.tracking_data
+    return data[shipmentId] || data.tracking_data || data;
+  } catch (error) {
+    console.error("Tracking Error:", error.message);
+    throw error;
   }
-
-  return data;
 };
