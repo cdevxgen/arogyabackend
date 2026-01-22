@@ -377,10 +377,6 @@ export const deleteMultipleOrders = async (req, res) => {
 export const shipOrder = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // 1. EXTRACT DIMENSIONS
-    // If the frontend sends empty body {}, these will be undefined.
-    // The service layer should handle defaults, or the Order model defaults apply.
     const { length, breadth, height, weight } = req.body;
 
     const order = await Order.findById(id);
@@ -398,16 +394,14 @@ export const shipOrder = async (req, res) => {
         .json({ success: false, message: "Order already shipped" });
     }
 
-    // 2. FIX RACE CONDITION: Auto-confirm strictly in backend
+    // FIX: Ensure order is confirmed
     if (order.orderStatus !== "Confirmed") {
-      console.log(`Auto-confirming order ${id} before shipping`);
       order.orderStatus = "Confirmed";
       await order.save();
     }
 
-    // 3. CALL SHIPROCKET SERVICE
-    // We pass the dimensions overrides if they exist in req.body,
-    // otherwise the service will use order items' defaults.
+    // CALL SERVICE
+    // This will now use safe defaults if data is missing
     const sr = await createShiprocketOrder(order, {
       length,
       breadth,
@@ -419,23 +413,21 @@ export const shipOrder = async (req, res) => {
       throw new Error(sr?.message || "Invalid Shiprocket response");
     }
 
-    // 4. SAVE TRACKING INFO
+    // UPDATE DB
     order.tracking = {
       shipmentId: sr.shipment_id,
       awbCode: sr.awb_code || null,
       courierName: sr.courier_name || null,
       status: "Shipped",
-      orderId: sr.order_id, // Store Shiprocket's internal order ID
+      orderId: sr.order_id,
     };
 
     order.orderStatus = "Shipped";
-    // Sync Legacy Fields for backwards compatibility
     order.trackingNumber = sr.awb_code || "";
     order.courierPartner = sr.courier_name || "";
 
     await order.save();
 
-    // 5. RETURN SUCCESS
     return res.status(200).json({
       success: true,
       message: "Order shipped successfully",
@@ -446,8 +438,11 @@ export const shipOrder = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("Ship order error:", err.message);
-    // Return specific error message to frontend
+    // --- CRITICAL DEBUGGING LOG ---
+    console.error("❌ SHIP ORDER CONTROLLER ERROR:");
+    console.error(err.message);
+    console.error(err.stack); // This prints the exact line number causing the 500 error
+
     return res.status(500).json({
       success: false,
       message: err.message || "Shipping failed",
