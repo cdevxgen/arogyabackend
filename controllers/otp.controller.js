@@ -9,32 +9,27 @@ const generateToken = (id, role) =>
  * SEND OTP
  * FIX: Moves template_id and authkey from Body to Query Params
  */
+// ... imports
+
 export const sendOtp = async (req, res) => {
   try {
     const { phone } = req.body;
 
-    // 1. Log to server console to debug (Check your terminal when you click send)
-    console.log("Attempting to send OTP to:", phone);
-    console.log("Using Template ID:", process.env.MSG91_TEMPLATE_ID);
+    // Log for debugging
+    console.log("Sending OTP to:", phone);
 
-    if (!phone) return res.status(400).json({ message: "Phone is required" });
-    if (!process.env.MSG91_TEMPLATE_ID) {
-      console.error("ERROR: MSG91_TEMPLATE_ID is missing in .env file");
-      return res.status(500).json({ message: "Server Configuration Error" });
-    }
-
-    // 2. Correct MSG91 v5 Request Format
-    // We send 'null' as the second argument (body)
-    // We send parameters in the third argument (params)
+    // TRY THIS: Send everything in JSON Body instead of Params
     const response = await axios.post(
       "https://control.msg91.com/api/v5/otp",
-      null,
       {
-        params: {
-          template_id: process.env.MSG91_TEMPLATE_ID,
-          mobile: phone,
-          authkey: process.env.MSG91_AUTH_KEY,
-          realTimeResponse: 1,
+        template_id: process.env.MSG91_TEMPLATE_ID,
+        mobile: phone,
+        authkey: process.env.MSG91_AUTH_KEY,
+        realTimeResponse: 1,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
         },
       }
     );
@@ -47,11 +42,8 @@ export const sendOtp = async (req, res) => {
 
     res.json({ message: "OTP sent successfully" });
   } catch (err) {
-    // Detailed error logging
     console.error("OTP Send Failed:", err?.response?.data || err.message);
-    res.status(500).json({
-      message: err?.response?.data?.message || "OTP sending failed",
-    });
+    res.status(500).json({ message: "OTP sending failed" });
   }
 };
 
