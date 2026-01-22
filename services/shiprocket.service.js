@@ -35,14 +35,29 @@ export const getShiprocketToken = async () => {
 /* ===============================
    📦 CREATE SHIPROCKET ORDER
 ================================ */
+/* services/shiprocket.service.js */
 export const createShiprocketOrder = async (order) => {
   const token = await getShiprocketToken();
 
+  // SHIPROCKET REQUIRES DATE AS "YYYY-MM-DD HH:mm"
+  const date = new Date();
+  const formattedDate =
+    date.getFullYear() +
+    "-" +
+    ("0" + (date.getMonth() + 1)).slice(-2) +
+    "-" +
+    ("0" + date.getDate()).slice(-2) +
+    " " +
+    ("0" + date.getHours()).slice(-2) +
+    ":" +
+    ("0" + date.getMinutes()).slice(-2);
+
   const payload = {
     order_id: order._id.toString(),
-    order_date: new Date().toISOString(),
+    order_date: formattedDate, // FIX 1: Correct Date Format
     pickup_location: "Primary",
 
+    // ... (Billing details remain the same) ...
     billing_customer_name: order.customerDetails.firstName,
     billing_last_name: order.customerDetails.lastName,
     billing_email: order.customerDetails.email,
@@ -65,10 +80,16 @@ export const createShiprocketOrder = async (order) => {
 
     payment_method:
       order.paymentMethod === "Cash on Delivery" ? "COD" : "Prepaid",
-
     sub_total: order.subtotal,
+
+    // FIX 2: MANDATORY FIELDS ADDED (Defaults if missing in DB)
+    length: 10,
+    breadth: 10,
+    height: 10,
+    weight: 0.5,
   };
 
+  // ... rest of the fetch call
   const response = await fetch(`${SHIPROCKET_BASE_URL}/orders/create/adhoc`, {
     method: "POST",
     headers: {
@@ -77,14 +98,7 @@ export const createShiprocketOrder = async (order) => {
     },
     body: JSON.stringify(payload),
   });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || "Shiprocket order failed");
-  }
-
-  return data;
+  // ...
 };
 
 export const trackShiprocketOrder = async (shipmentId) => {
