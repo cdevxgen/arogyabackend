@@ -76,7 +76,7 @@ export const createShiprocketOrder = async (order, dimensions = {}) => {
 
   // 4. PICKUP LOCATION
   // Matches the "Pickup Location Nickname" in your Shiprocket Settings -> Pickup Addresses
-  const pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || "Primary";
+  const pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || "Warehouse";
 
   const payload = {
     order_id: order._id.toString(),
