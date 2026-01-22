@@ -345,9 +345,15 @@ export const deleteMultipleOrders = async (req, res) => {
 /* ======================================================
    🚚 SHIP ORDER (ADMIN ONLY)
 ====================================================== */
+/* ======================================================
+   🚚 SHIP ORDER (ADMIN ONLY)
+====================================================== */
 export const shipOrder = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // 1. EXTRACT DIMENSIONS FROM REQUEST BODY
+    const { length, breadth, height, weight } = req.body;
 
     const order = await Order.findById(id);
 
@@ -366,6 +372,8 @@ export const shipOrder = async (req, res) => {
       });
     }
 
+    // Optional: You might want to allow shipping if it's not confirmed yet by auto-confirming here
+    // But strictly following your logic:
     if (order.orderStatus !== "Confirmed") {
       return res.status(400).json({
         success: false,
@@ -373,11 +381,22 @@ export const shipOrder = async (req, res) => {
       });
     }
 
-    // Call Shiprocket
-    const sr = await createShiprocketOrder(order);
+    // 2. PASS DIMENSIONS TO SERVICE
+    // We pass 'req.body' as the second argument
+    const sr = await createShiprocketOrder(order, {
+      length,
+      breadth,
+      height,
+      weight,
+    });
 
     if (!sr?.shipment_id) {
-      throw new Error("Invalid Shiprocket response");
+      // If SR fails, we throw the error message returned by the service
+      throw new Error(
+        sr?.message ||
+          JSON.stringify(sr?.errors) ||
+          "Invalid Shiprocket response"
+      );
     }
 
     // Save tracking info

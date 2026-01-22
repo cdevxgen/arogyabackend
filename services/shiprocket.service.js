@@ -32,14 +32,14 @@ export const getShiprocketToken = async () => {
   return shiprocketToken;
 };
 
-/* ===============================
-   📦 CREATE SHIPROCKET ORDER
-================================ */
 /* services/shiprocket.service.js */
-export const createShiprocketOrder = async (order) => {
+
+// ... (getShiprocketToken function remains same)
+
+export const createShiprocketOrder = async (order, dimensions = {}) => {
   const token = await getShiprocketToken();
 
-  // SHIPROCKET REQUIRES DATE AS "YYYY-MM-DD HH:mm"
+  // Format Date: YYYY-MM-DD HH:mm
   const date = new Date();
   const formattedDate =
     date.getFullYear() +
@@ -52,12 +52,18 @@ export const createShiprocketOrder = async (order) => {
     ":" +
     ("0" + date.getMinutes()).slice(-2);
 
+  // 1. USE DYNAMIC DIMENSIONS OR FALLBACK
+  // Shiprocket requires Numbers, not Strings.
+  const finalLength = parseFloat(dimensions.length) || 10;
+  const finalBreadth = parseFloat(dimensions.breadth) || 10;
+  const finalHeight = parseFloat(dimensions.height) || 10;
+  const finalWeight = parseFloat(dimensions.weight) || 0.5;
+
   const payload = {
     order_id: order._id.toString(),
-    order_date: formattedDate, // FIX 1: Correct Date Format
-    pickup_location: "Primary",
+    order_date: formattedDate,
+    pickup_location: "Primary", // Ensure this matches your Shiprocket Settings -> Pickup Address
 
-    // ... (Billing details remain the same) ...
     billing_customer_name: order.customerDetails.firstName,
     billing_last_name: order.customerDetails.lastName,
     billing_email: order.customerDetails.email,
@@ -73,23 +79,28 @@ export const createShiprocketOrder = async (order) => {
 
     order_items: order.items.map((item) => ({
       name: item.title,
-      sku: item.productId.toString(),
-      units: item.quantity,
-      selling_price: item.pricePerUnit,
+      // SKU is critical. If missing, use Product ID
+      sku: item.productId ? item.productId.toString() : "SKU-DEFAULT",
+      units: parseInt(item.quantity),
+      selling_price: parseFloat(item.pricePerUnit),
     })),
 
     payment_method:
       order.paymentMethod === "Cash on Delivery" ? "COD" : "Prepaid",
-    sub_total: order.subtotal,
+    sub_total: parseFloat(order.subtotal),
 
-    // FIX 2: MANDATORY FIELDS ADDED (Defaults if missing in DB)
-    length: 10,
-    breadth: 10,
-    height: 10,
-    weight: 0.5,
+    // 2. INJECT FINAL DIMENSIONS
+    length: finalLength,
+    breadth: finalBreadth,
+    height: finalHeight,
+    weight: finalWeight,
   };
 
-  // ... rest of the fetch call
+  console.log(
+    "🚀 Sending Payload to Shiprocket:",
+    JSON.stringify(payload, null, 2)
+  );
+
   const response = await fetch(`${SHIPROCKET_BASE_URL}/orders/create/adhoc`, {
     method: "POST",
     headers: {
@@ -98,7 +109,27 @@ export const createShiprocketOrder = async (order) => {
     },
     body: JSON.stringify(payload),
   });
-  // ...
+
+  const data = await response.json();
+
+  // 3. IMPROVED ERROR HANDLING
+  // If response is not OK, or if 'data' has validation errors (Shiprocket often returns 422 for bad data)
+  if (!response.ok || data.status_code === 422 || data.status_code === 400) {
+    console.error("❌ Shiprocket Error Response:", data);
+
+    // Check for specific field errors (e.g., "pincode is invalid")
+    let errorMessage = data.message || "Shiprocket API Error";
+
+    if (data.errors) {
+      // Shiprocket errors can be an object or array
+      errorMessage += " : " + JSON.stringify(data.errors);
+    }
+
+    // Throwing here ensures the Controller catches the REAL reason
+    throw new Error(errorMessage);
+  }
+
+  return data;
 };
 
 export const trackShiprocketOrder = async (shipmentId) => {
