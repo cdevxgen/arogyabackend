@@ -40,32 +40,19 @@ export const getShiprocketToken = async () => {
 export const createShiprocketOrder = async (order, dimensions = {}) => {
   const token = await getShiprocketToken();
 
-  // Format Date: YYYY-MM-DD HH:mm
   const date = new Date();
-  const formattedDate =
-    date.getFullYear() +
-    "-" +
-    ("0" + (date.getMonth() + 1)).slice(-2) +
-    "-" +
-    ("0" + date.getDate()).slice(-2) +
-    " " +
-    ("0" + date.getHours()).slice(-2) +
-    ":" +
-    ("0" + date.getMinutes()).slice(-2);
+  const formattedDate = date.toISOString().slice(0, 16).replace("T", " ");
 
-  // 1. USE DYNAMIC DIMENSIONS OR FALLBACK
-  const finalLength = parseFloat(dimensions.length) || 10;
-  const finalBreadth = parseFloat(dimensions.breadth) || 10;
-  const finalHeight = parseFloat(dimensions.height) || 10;
-  const finalWeight = parseFloat(dimensions.weight) || 0.5;
-
-  // ⚠️ CRITICAL: CHECK YOUR SHIPROCKET DASHBOARD FOR EXACT PICKUP LOCATION NAME
-  const PICKUP_LOCATION_NAME = "Primary";
+  const finalLength = Number(dimensions.length) || 10;
+  const finalBreadth = Number(dimensions.breadth) || 10;
+  const finalHeight = Number(dimensions.height) || 10;
+  const finalWeight = Number(dimensions.weight) || 0.5;
 
   const payload = {
     order_id: order._id.toString(),
     order_date: formattedDate,
-    pickup_location: PICKUP_LOCATION_NAME,
+
+    pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION,
 
     billing_customer_name: order.customerDetails.firstName,
     billing_last_name: order.customerDetails.lastName || "",
@@ -82,25 +69,21 @@ export const createShiprocketOrder = async (order, dimensions = {}) => {
 
     order_items: order.items.map((item) => ({
       name: item.title,
-      sku: item.productId ? item.productId.toString() : "SKU-DEFAULT",
-      units: parseInt(item.quantity),
-      selling_price: parseFloat(item.pricePerUnit),
+      sku: item.productId.toString(),
+      units: item.quantity,
+      selling_price: item.pricePerUnit,
     })),
 
     payment_method:
       order.paymentMethod === "Cash on Delivery" ? "COD" : "Prepaid",
-    sub_total: parseFloat(order.subtotal),
+
+    sub_total: order.subtotal,
 
     length: finalLength,
     breadth: finalBreadth,
     height: finalHeight,
     weight: finalWeight,
   };
-
-  console.log(
-    "🚀 Sending Payload to Shiprocket:",
-    JSON.stringify(payload, null, 2)
-  );
 
   const response = await fetch(`${SHIPROCKET_BASE_URL}/orders/create/adhoc`, {
     method: "POST",
@@ -113,18 +96,8 @@ export const createShiprocketOrder = async (order, dimensions = {}) => {
 
   const data = await response.json();
 
-  // 3. IMPROVED ERROR HANDLING
-  if (!response.ok || data.status_code === 422 || data.status_code === 400) {
-    console.error(
-      "❌ Shiprocket Error Response:",
-      JSON.stringify(data, null, 2)
-    );
-
-    let errorMessage = data.message || "Shiprocket API Error";
-    if (data.errors) {
-      errorMessage += " : " + JSON.stringify(data.errors);
-    }
-    throw new Error(errorMessage);
+  if (!response.ok) {
+    throw new Error(data.message || "Shiprocket order failed");
   }
 
   return data;
