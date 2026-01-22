@@ -37,22 +37,28 @@ export const getShiprocketToken = async () => {
 /* ===============================
    📦 CREATE SHIPROCKET ORDER
 ================================ */
+/* services/shiprocket.service.js */
+
 export const createShiprocketOrder = async (order, dimensions = {}) => {
   const token = await getShiprocketToken();
 
+  // Format Date: YYYY-MM-DD HH:mm
   const date = new Date();
   const formattedDate = date.toISOString().slice(0, 16).replace("T", " ");
 
-  const finalLength = Number(dimensions.length) || 10;
-  const finalBreadth = Number(dimensions.breadth) || 10;
-  const finalHeight = Number(dimensions.height) || 10;
-  const finalWeight = Number(dimensions.weight) || 0.5;
+  // 1. DIMENSIONS (Fallback to 10x10x10 if empty)
+  const finalLength = parseFloat(dimensions.length) || 10;
+  const finalBreadth = parseFloat(dimensions.breadth) || 10;
+  const finalHeight = parseFloat(dimensions.height) || 10;
+  const finalWeight = parseFloat(dimensions.weight) || 0.5;
+
+  // 2. PICKUP LOCATION (Hardcoded fallback to 'Warehouse' to fix your specific error)
+  const pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || "Warehouse";
 
   const payload = {
     order_id: order._id.toString(),
     order_date: formattedDate,
-
-    pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION, //updated
+    pickup_location: pickupLocation, // <--- MUST MATCH SHIPROCKET NICKNAME EXACTLY
 
     billing_customer_name: order.customerDetails.firstName,
     billing_last_name: order.customerDetails.lastName || "",
@@ -69,15 +75,14 @@ export const createShiprocketOrder = async (order, dimensions = {}) => {
 
     order_items: order.items.map((item) => ({
       name: item.title,
-      sku: item.productId.toString(),
-      units: item.quantity,
-      selling_price: item.pricePerUnit,
+      sku: item.productId ? item.productId.toString() : "SKU-DEFAULT",
+      units: parseInt(item.quantity),
+      selling_price: parseFloat(item.pricePerUnit),
     })),
 
     payment_method:
       order.paymentMethod === "Cash on Delivery" ? "COD" : "Prepaid",
-
-    sub_total: order.subtotal,
+    sub_total: parseFloat(order.subtotal),
 
     length: finalLength,
     breadth: finalBreadth,
@@ -96,8 +101,10 @@ export const createShiprocketOrder = async (order, dimensions = {}) => {
 
   const data = await response.json();
 
-  if (!response.ok) {
-    throw new Error(data.message || "Shiprocket order failed");
+  if (!response.ok || data.status_code === 422 || data.status_code === 400) {
+    console.error("❌ Shiprocket Error:", JSON.stringify(data));
+    const errorMessage = data.message || "Shiprocket API Error";
+    throw new Error(errorMessage);
   }
 
   return data;
