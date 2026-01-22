@@ -2,82 +2,121 @@ import axios from "axios";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 
-const generateToken = (id, role) =>
-  jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+/**
+ * Generate JWT Token
+ */
+const generateToken = (id, role) => {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "1d" });
+};
 
 /**
- * SEND OTP
- * Fix: Sends template_id and authkey as Query Params
+ * ================================
+ * SEND OTP (MSG91 v5)
+ * ================================
  */
 export const sendOtp = async (req, res) => {
   try {
     const { phone } = req.body;
-    if (!phone) return res.status(400).json({ message: "Phone is required" });
 
-    // MSG91 v5 requires template_id and authkey in params (URL), not body
+    // Validation
+    if (!phone) {
+      return res.status(400).json({ message: "Phone number is required" });
+    }
+
+    // Ensure 10-digit Indian mobile number
+    const mobile = phone.replace(/\D/g, "").slice(-10);
+    if (mobile.length !== 10) {
+      return res.status(400).json({ message: "Invalid mobile number" });
+    }
+
+    // Send OTP via MSG91
     const response = await axios.post(
       "https://control.msg91.com/api/v5/otp",
-      null, // Body is empty
+      null,
       {
         params: {
+          mobile: mobile,
           template_id: process.env.MSG91_TEMPLATE_ID,
-          mobile: phone,
           authkey: process.env.MSG91_AUTH_KEY,
-          realTimeResponse: 1, // Optional: Force JSON response
+          realTimeResponse: 1,
         },
       }
     );
 
-    // Check for logical error from MSG91 (even if status is 200)
-    if (response.data.type === "error") {
-      throw new Error(response.data.message);
+    // MSG91 logical error handling
+    if (response?.data?.type === "error") {
+      return res.status(400).json({
+        message: response.data.message || "OTP request failed",
+      });
     }
 
-    res.json({ message: "OTP sent successfully" });
+    res.status(200).json({
+      message: "OTP sent successfully",
+    });
   } catch (err) {
     console.error("OTP Send Error:", err?.response?.data || err.message);
-    res
-      .status(500)
-      .json({ message: "OTP sending failed. Please check backend logs." });
+
+    res.status(500).json({
+      message: "Failed to send OTP",
+    });
   }
 };
 
 /**
- * VERIFY OTP
+ * ================================
+ * VERIFY OTP (MSG91 v5)
+ * ================================
  */
 export const verifyOtp = async (req, res) => {
   try {
     const { phone, otp } = req.body;
 
+    // Validation
+    if (!phone || !otp) {
+      return res.status(400).json({
+        message: "Phone number and OTP are required",
+      });
+    }
+
+    const mobile = phone.replace(/\D/g, "").slice(-10);
+    if (mobile.length !== 10) {
+      return res.status(400).json({
+        message: "Invalid mobile number",
+      });
+    }
+
+    // Verify OTP
     const verify = await axios.post(
       "https://control.msg91.com/api/v5/otp/verify",
       null,
       {
         params: {
-          mobile: phone,
+          mobile: mobile,
           otp: otp,
           authkey: process.env.MSG91_AUTH_KEY,
         },
       }
     );
 
-    if (verify.data.type !== "success") {
-      return res.status(400).json({ message: "Invalid OTP" });
+    if (verify?.data?.type !== "success") {
+      return res.status(400).json({
+        message: "Invalid or expired OTP",
+      });
     }
 
-    let user = await User.findOne({ phone });
+    // Find or create user
+    let user = await User.findOne({ phone: mobile });
 
-    // 🆕 Register if not exists
     if (!user) {
       user = await User.create({
-        phone,
-        username: `user_${phone.slice(-6)}`,
+        phone: mobile,
+        username: `user_${mobile.slice(-6)}`,
         role: "user",
         authProviders: { phone: true },
       });
     }
 
-    res.json({
+    res.status(200).json({
       _id: user._id,
       username: user.username,
       phone: user.phone,
@@ -87,6 +126,9 @@ export const verifyOtp = async (req, res) => {
     });
   } catch (err) {
     console.error("OTP Verify Error:", err?.response?.data || err.message);
-    res.status(500).json({ message: "OTP verification failed" });
+
+    res.status(500).json({
+      message: "OTP verification failed",
+    });
   }
 };
