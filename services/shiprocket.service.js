@@ -40,12 +40,59 @@ export const getShiprocketToken = async () => {
 };
 
 /* ===============================
+   🏢 GET VALID PICKUP LOCATION (AUTO-FIX)
+================================ */
+const getValidPickupLocation = async (token) => {
+  try {
+    // 1. Check environment variable first
+    if (process.env.SHIPROCKET_PICKUP_LOCATION) {
+      return process.env.SHIPROCKET_PICKUP_LOCATION;
+    }
+
+    // 2. If no env var, FETCH from Shiprocket API
+    const response = await fetch(
+      `${SHIPROCKET_BASE_URL}/settings/pickup_locations`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    // Check if we got a list of addresses
+    if (
+      data &&
+      data.data &&
+      data.data.shipping_address &&
+      data.data.shipping_address.length > 0
+    ) {
+      // Return the nickname of the FIRST active location found
+      const validLocation =
+        data.data.shipping_address[0].pickup_location_nickname;
+      console.log("✅ Auto-selected Pickup Location:", validLocation);
+      return validLocation;
+    }
+
+    throw new Error("No Pickup Locations configured in Shiprocket account.");
+  } catch (error) {
+    console.error("⚠️ Failed to fetch pickup locations:", error.message);
+    return "Primary"; // Fallback
+  }
+};
+
+/* ===============================
    📦 CREATE SHIPROCKET ORDER
 ================================ */
 export const createShiprocketOrder = async (order, dimensions = {}) => {
   const token = await getShiprocketToken();
 
-  // 1. FORMAT DATE
+  // 1. GET VALID LOCATION DYNAMICALLY
+  const pickupLocation = await getValidPickupLocation(token);
+
+  // 2. FORMAT DATE
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -54,14 +101,14 @@ export const createShiprocketOrder = async (order, dimensions = {}) => {
   const minutes = String(now.getMinutes()).padStart(2, "0");
   const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
 
-  // 2. SAFE DATA EXTRACTION (Prevents 500 Errors on null values)
+  // 3. SAFE DATA EXTRACTION
   const phoneRaw = order.customerDetails?.phone || "";
   const cleanPhone = phoneRaw.toString().replace(/\D/g, "").slice(-10);
 
   const pincodeRaw = order.shippingAddress?.pincode || "000000";
   const cleanPincode = parseInt(pincodeRaw, 10);
 
-  // 3. DIMENSIONS
+  // 4. DIMENSIONS
   const firstItem = (order.items && order.items[0]) || {};
   const finalLength = parseFloat(dimensions.length || firstItem.length || 10);
   const finalBreadth = parseFloat(
@@ -70,13 +117,11 @@ export const createShiprocketOrder = async (order, dimensions = {}) => {
   const finalHeight = parseFloat(dimensions.height || firstItem.height || 10);
   const finalWeight = parseFloat(dimensions.weight || firstItem.weight || 0.5);
 
-  const pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || "Primary";
-
-  // 4. CONSTRUCT PAYLOAD
+  // 5. CONSTRUCT PAYLOAD
   const payload = {
     order_id: order._id.toString(),
     order_date: formattedDate,
-    pickup_location: pickupLocation,
+    pickup_location: pickupLocation, // Using the dynamically fetched location
 
     billing_customer_name: order.customerDetails?.firstName || "Customer",
     billing_last_name: order.customerDetails?.lastName || "",
@@ -93,7 +138,6 @@ export const createShiprocketOrder = async (order, dimensions = {}) => {
 
     order_items: order.items.map((item) => ({
       name: item.title,
-      // Fallback SKU if missing
       sku:
         item.sku ||
         (item.productId ? item.productId.toString() : "SKU-DEFAULT"),
@@ -118,6 +162,7 @@ export const createShiprocketOrder = async (order, dimensions = {}) => {
   };
 
   try {
+    console.log("🚀 Sending Shiprocket Payload...");
     const response = await fetch(`${SHIPROCKET_BASE_URL}/orders/create/adhoc`, {
       method: "POST",
       headers: {
