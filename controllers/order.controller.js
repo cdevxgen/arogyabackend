@@ -348,41 +348,39 @@ export const deleteMultipleOrders = async (req, res) => {
 /* ======================================================
    🚚 SHIP ORDER (ADMIN ONLY)
 ====================================================== */
+/* ======================================================
+   🚚 SHIP ORDER (ADMIN ONLY)
+====================================================== */
 export const shipOrder = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 1. EXTRACT DIMENSIONS FROM REQUEST BODY
+    // 1. EXTRACT DIMENSIONS (Defaults handled in service if empty)
     const { length, breadth, height, weight } = req.body;
 
     const order = await Order.findById(id);
 
     if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
 
     // Prevent double shipping
     if (order.tracking?.shipmentId) {
-      return res.status(400).json({
-        success: false,
-        message: "Order already shipped",
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Order already shipped" });
     }
 
-    // Optional: You might want to allow shipping if it's not confirmed yet by auto-confirming here
-    // But strictly following your logic:
+    // 2. FIX RACE CONDITION: Auto-confirm strictly in backend
     if (order.orderStatus !== "Confirmed") {
-      return res.status(400).json({
-        success: false,
-        message: "Order must be confirmed before shipping",
-      });
+      console.log(`Auto-confirming order ${id} before shipping`);
+      order.orderStatus = "Confirmed";
+      await order.save();
     }
 
-    // 2. PASS DIMENSIONS TO SERVICE
-    // We pass 'req.body' as the second argument
+    // 3. CALL SHIPROCKET SERVICE
     const sr = await createShiprocketOrder(order, {
       length,
       breadth,
@@ -391,15 +389,10 @@ export const shipOrder = async (req, res) => {
     });
 
     if (!sr?.shipment_id) {
-      // If SR fails, we throw the error message returned by the service
-      throw new Error(
-        sr?.message ||
-          JSON.stringify(sr?.errors) ||
-          "Invalid Shiprocket response"
-      );
+      throw new Error(sr?.message || "Invalid Shiprocket response");
     }
 
-    // Save tracking info
+    // 4. SAVE TRACKING INFO
     order.tracking = {
       shipmentId: sr.shipment_id,
       awbCode: sr.awb_code || null,
@@ -408,8 +401,13 @@ export const shipOrder = async (req, res) => {
     };
 
     order.orderStatus = "Shipped";
+    // Clear legacy fields if they exist in schema to avoid confusion
+    order.trackingNumber = sr.awb_code || "";
+    order.courierPartner = sr.courier_name || "";
+
     await order.save();
 
+    // 5. RETURN SUCCESS
     return res.status(200).json({
       success: true,
       message: "Order shipped successfully",
@@ -421,6 +419,7 @@ export const shipOrder = async (req, res) => {
     });
   } catch (err) {
     console.error("Ship order error:", err.message);
+    // Return specific error message to frontend
     return res.status(500).json({
       success: false,
       message: err.message || "Shipping failed",
