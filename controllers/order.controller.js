@@ -453,6 +453,9 @@ export const shipOrder = async (req, res) => {
 /* ======================================================
    📦 TRACK ORDER BY ORDER NUMBER (PUBLIC)
 ====================================================== */
+/* ======================================================
+   📦 ADVANCED TRACKING (Auto-Sync Status & Courier)
+====================================================== */
 export const trackOrderByNumber = async (req, res) => {
   try {
     const { orderNumber } = req.params;
@@ -466,39 +469,91 @@ export const trackOrderByNumber = async (req, res) => {
       });
     }
 
-    // If not shipped yet
+    // If not shipped via Shiprocket, return basic info
     if (!order.tracking?.shipmentId) {
       return res.status(200).json({
         success: true,
         orderStatus: order.orderStatus,
-        message: "Order is not shipped yet",
+        message: "Shipment not yet created",
       });
     }
 
-    // Fetch live tracking from Shiprocket
+    // 1. CALL SHIPROCKET API
     const trackingData = await trackShiprocketOrder(order.tracking.shipmentId);
 
-    // Update latest tracking snapshot in DB
-    order.tracking.status = trackingData.current_status;
-    order.tracking.history = trackingData.shipment_track_activities || [];
+    // 2. EXTRACT DATA
+    // Note: Shiprocket response keys can vary slightly based on plan, handling safely
+    const currentStatus = trackingData.current_status?.toUpperCase() || "";
+    const courierName = trackingData.courier_name || order.tracking.courierName;
+    const awbCode = trackingData.awb_code || order.tracking.awbCode;
+    const activities = trackingData.shipment_track_activities || [];
+
+    // 3. AUTO-UPDATE COURIER & AWB (If missing in DB)
+    order.tracking.courierName = courierName;
+    order.tracking.awbCode = awbCode;
+    order.tracking.history = activities;
+
+    // Sync Legacy Fields
+    order.courierPartner = courierName;
+    order.trackingNumber = awbCode;
+
+    // 4. SMART STATUS MAPPING (Shiprocket -> Your DB)
+    // Only update if the status has actually changed forward
+    let newInternalStatus = order.orderStatus;
+
+    if (currentStatus === "DELIVERED") {
+      newInternalStatus = "Delivered";
+    } else if (
+      currentStatus.includes("RTO") ||
+      currentStatus.includes("RETURN")
+    ) {
+      newInternalStatus = "Returned"; // or "RTO" if you added that enum
+    } else if (currentStatus === "CANCELED") {
+      newInternalStatus = "Cancelled";
+    } else if (
+      ["PICKED UP", "IN TRANSIT", "OUT FOR DELIVERY", "SHIPPED"].includes(
+        currentStatus
+      )
+    ) {
+      // Don't revert 'Delivered' back to 'Shipped' if API lags
+      if (
+        order.orderStatus !== "Delivered" &&
+        order.orderStatus !== "Returned"
+      ) {
+        newInternalStatus = "Shipped";
+      }
+    }
+
+    // Apply Status Update
+    if (order.orderStatus !== newInternalStatus) {
+      console.log(
+        `🔄 Auto-updating Order ${order._id}: ${order.orderStatus} -> ${newInternalStatus}`
+      );
+      order.orderStatus = newInternalStatus;
+      order.tracking.status = currentStatus; // Keep raw Shiprocket status here
+    }
+
     await order.save();
 
+    // 5. RETURN UPDATED ORDER
     return res.status(200).json({
       success: true,
       orderId: order._id,
       orderStatus: order.orderStatus,
       tracking: {
-        courier: trackingData.courier_name,
-        awb: trackingData.awb_code,
-        currentStatus: trackingData.current_status,
-        history: trackingData.shipment_track_activities,
+        courier: courierName,
+        awb: awbCode,
+        currentStatus: currentStatus, // Raw SR Status
+        internalStatus: newInternalStatus, // Your DB Status
+        history: activities,
       },
     });
   } catch (err) {
-    console.error("Tracking error:", err.message);
+    console.error("Tracking Error:", err.message);
+    // Even if tracking fails, return the order data we have
     return res.status(500).json({
       success: false,
-      message: "Unable to fetch tracking details",
+      message: "Unable to sync with Shiprocket",
     });
   }
 };
