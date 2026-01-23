@@ -16,6 +16,7 @@ import quoteRoutes from "./routes/quoteRequest.router.js";
 import soupsRoutes from "./routes/soups/soup.router.js";
 import maltsRoutes from "./routes/soups/malt.router.js";
 import programRoutes from "./routes/soups/program.router.js";
+import bulkRequestRoutes from "./routes/bulkRequest.router.js";
 
 // ✅ CREATE APP FIRST
 const app = express();
@@ -62,6 +63,8 @@ app.use("/api/v4/quotes", quoteRoutes);
 app.use("/api/v4/soupsdata", soupsRoutes);
 app.use("/api/v4/maltsdata", maltsRoutes);
 app.use("/api/v4/programdata", programRoutes);
+
+app.use("/api/v4/bulkrequest", bulkRequestRoutes);
 
 // ✅ HEALTH CHECK
 app.get("/", (req, res) => {
