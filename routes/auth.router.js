@@ -24,6 +24,9 @@ router.post("/register-admin", protect, adminOnly, registerAdmin);
 router.post("/register-user", protect, adminOnly, registerUser);
 router.get("/all-users", protect, adminOnly, getAllUsers);
 
+// My Profile
+router.get("/me", protect, getMyProfile);
+
 // 👉 NEW: Update & Delete User
 router.put("/:id", protect, adminOnly, updateUser);
 router.delete("/:id", protect, adminOnly, deleteUser);
