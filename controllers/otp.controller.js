@@ -1,38 +1,27 @@
 import axios from "axios";
-import jwt from "jsonwebtoken";
-import User from "../models/user.model.js";
-
-/**
- * Generate JWT Token
- */
-const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "1d" });
-};
+import Customer from "../models/customer.model.js"; // ✅ CHANGED: Import Customer, not User
+import { generateToken } from "../utils/generateToken.js"; // ✅ Use the same token generator as Email/Google login
 
 /**
  * ================================
  * SEND OTP (MSG91 v5)
  * ================================
  */
-// customer.controller.js
-
 export const sendOtp = async (req, res) => {
   try {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ message: "Phone required" });
 
-    // Format: 91 + last 10 digits
+    // 1. Format Mobile (India)
     const cleanPhone = phone.replace(/\D/g, "").slice(-10);
     const mobileWithCountryCode = "91" + cleanPhone;
 
-    console.log("--------------------------------");
-    console.log("Target Mobile:", mobileWithCountryCode);
-    console.log("Template ID:", process.env.MSG91_TEMPLATE_ID); // Check if this changes after you update .env!
-    console.log("--------------------------------");
+    console.log(`Sending OTP to: ${mobileWithCountryCode}`);
 
+    // 2. Send OTP via MSG91
     const response = await axios.post(
       "https://control.msg91.com/api/v5/otp",
-      null,
+      {},
       {
         params: {
           template_id: process.env.MSG91_TEMPLATE_ID,
@@ -50,7 +39,7 @@ export const sendOtp = async (req, res) => {
 
     res.status(200).json({ message: "OTP sent successfully" });
   } catch (err) {
-    console.error("Server Error:", err.message);
+    console.error("Server Error:", err.response?.data || err.message);
     res.status(500).json({ message: "Failed to send OTP" });
   }
 };
@@ -68,11 +57,11 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "Phone and OTP required" });
     }
 
-    // Standardize phone format (same as sendOtp)
+    // 1. Standardize phone format
     const mobileClean = phone.replace(/\D/g, "").slice(-10);
     const mobileWithCountryCode = "91" + mobileClean;
 
-    // Verify API
+    // 2. Verify OTP with MSG91
     const verify = await axios.get(
       "https://control.msg91.com/api/v5/otp/verify",
       {
@@ -88,25 +77,27 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // Database Logic
-    let user = await User.findOne({ phone: mobileClean });
+    // 3. Database Logic (Using CUSTOMER model)
+    let customer = await Customer.findOne({ phone: mobileClean });
 
-    if (!user) {
-      user = await User.create({
+    if (!customer) {
+      // Create new customer if they don't exist
+      customer = await Customer.create({
         phone: mobileClean,
-        username: `user_${mobileClean.slice(-6)}`,
-        role: "user",
-        authProviders: { phone: true },
+        // Set a default name if it doesn't exist
+        name: `User ${mobileClean.slice(-4)}`,
+        email: "", // Optional: handle empty email in your schema
+        isVerified: true, // Mark as verified since OTP passed
       });
     }
 
+    // 4. Generate Token & Response
+    // IMPORTANT: Ensure generateToken matches what your middleware expects
     res.status(200).json({
-      _id: user._id,
-      username: user.username,
-      phone: user.phone,
-      role: user.role,
-      token: generateToken(user._id, user.role),
-      loginType: "otp",
+      id: customer._id,
+      name: customer.name,
+      phone: customer.phone,
+      token: generateToken(customer._id), // ✅ Token for Customer
     });
   } catch (err) {
     console.error("Verify Error:", err.response?.data || err.message);
