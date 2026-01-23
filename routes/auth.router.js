@@ -6,6 +6,7 @@ import {
   forgotPassword,
   resetPassword,
   getAllUsers,
+  getMyProfile,
   updateUser,
   deleteUser,
 } from "../controllers/auth.controller.js";
