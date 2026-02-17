@@ -18,6 +18,8 @@ import maltsRoutes from "./routes/soups/malt.router.js";
 import programRoutes from "./routes/soups/program.router.js";
 import bulkRequestRoutes from "./routes/bulkRequest.router.js";
 
+import shiprocketRouter from "./routes/shiprocket.router.js";
+
 // ✅ CREATE APP FIRST
 const app = express();
 
@@ -65,6 +67,9 @@ app.use("/api/v4/maltsdata", maltsRoutes);
 app.use("/api/v4/programdata", programRoutes);
 
 app.use("/api/v4/bulkrequest", bulkRequestRoutes);
+
+// ✅ 2. ADD THIS ROUTE
+app.use("/api/v4/shiprocket", shiprocketRouter);
 
 // ✅ HEALTH CHECK
 app.get("/", (req, res) => {

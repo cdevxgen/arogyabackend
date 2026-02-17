@@ -210,3 +210,78 @@ export const trackShiprocketOrder = async (shipmentId) => {
   if (!response.ok) throw new Error("Tracking fetch failed");
   return data[shipmentId] || data.tracking_data || data;
 };
+
+/* ===============================
+   🧮 CALCULATE SHIPPING RATE
+================================ */
+export const calculateShippingRate = async ({
+  delivery_postcode,
+  weight,
+  cod = 0,
+}) => {
+  console.log(
+    `🧮 Calculating shipping rate for pincode: ${delivery_postcode}, weight: ${weight}`
+  );
+
+  const token = await getShiprocketToken();
+  const pickup_postcode = process.env.SHIPROCKET_PICKUP_PINCODE;
+
+  if (!pickup_postcode) {
+    console.error("❌ SHIPROCKET_PICKUP_PINCODE is missing in .env");
+    throw new Error("Warehouse pickup pincode is not configured.");
+  }
+
+  // Construct query parameters
+  const queryParams = new URLSearchParams({
+    pickup_postcode,
+    delivery_postcode,
+    weight,
+    cod,
+  }).toString();
+
+  try {
+    const response = await fetch(
+      `${SHIPROCKET_BASE_URL}/courier/serviceability/?${queryParams}`,
+      {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error(
+        "❌ Shiprocket Serviceability Error:",
+        JSON.stringify(data, null, 2)
+      );
+      throw new Error(
+        data.message || "Failed to fetch shipping rates from Shiprocket"
+      );
+    }
+
+    // Check if couriers are available
+    if (
+      data.status === 200 &&
+      data.data &&
+      data.data.available_courier_companies.length > 0
+    ) {
+      const couriers = data.data.available_courier_companies;
+
+      // Sort to find the cheapest rate
+      couriers.sort((a, b) => a.rate - b.rate);
+
+      const lowestRate = couriers[0].rate;
+      console.log(
+        `✅ Lowest shipping rate found: ₹${lowestRate} via ${couriers[0].courier_name}`
+      );
+
+      return lowestRate;
+    } else {
+      throw new Error("No serviceable couriers found for this pincode.");
+    }
+  } catch (error) {
+    console.error("❌ Calculate Shipping Rate Error:", error.message);
+    throw error;
+  }
+};
