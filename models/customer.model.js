@@ -10,21 +10,23 @@ const customerSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
-
     phone: {
       type: String,
       unique: true,
       sparse: true,
     },
-
     password: {
       type: String,
       select: false,
     },
-
     googleId: String,
-
     name: String,
+
+    // --- ADD THE MISSING FIELDS HERE ---
+    location: String,
+    bio: String,
+    avatar: String,
+    // -----------------------------------
 
     resetPasswordToken: String,
     resetPasswordExpire: Date,
@@ -56,4 +58,6 @@ customerSchema.methods.getResetToken = function () {
   return token;
 };
 
-export default mongoose.model("Customer", customerSchema);
+// Make sure to use models or model to prevent overwrite errors in Next.js
+export default mongoose.models.Customer ||
+  mongoose.model("Customer", customerSchema);
