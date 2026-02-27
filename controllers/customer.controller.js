@@ -83,14 +83,34 @@ export const getProfile = async (req, res) => {
 };
 
 /* UPDATE PROFILE */
+/* UPDATE PROFILE */
 export const updateProfile = async (req, res) => {
-  const customer = await Customer.findByIdAndUpdate(
-    req.customer._id,
-    req.body,
-    { new: true, runValidators: true }
-  ).select("-password");
+  try {
+    // 1. Extract ONLY the fields you want users to be able to change
+    const { name, location, bio, avatar } = req.body;
 
-  res.json(customer);
+    // 2. Build the update object
+    const updateFields = { name, location, bio, avatar };
+
+    // 3. Clean up undefined fields so we don't accidentally wipe out existing data
+    // If a user doesn't send a 'bio', we don't want to replace their existing bio with 'undefined'
+    Object.keys(updateFields).forEach(
+      (key) => updateFields[key] === undefined && delete updateFields[key]
+    );
+
+    // 4. Update the database safely
+    const customer = await Customer.findByIdAndUpdate(
+      req.customer._id,
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    res.json(customer);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: error.message || "Failed to update profile" });
+  }
 };
 
 /* CHANGE PASSWORD */
