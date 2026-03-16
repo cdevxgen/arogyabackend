@@ -30,6 +30,21 @@ const bulkItemSchema = new mongoose.Schema(
       required: true,
     },
 
+    // --- NEW GST FIELDS FOR ITEMS ---
+    baseTotal: {
+      type: Number,
+      default: 0,
+    },
+    gstPercent: {
+      type: Number,
+      default: 0,
+    },
+    gstAmount: {
+      type: Number,
+      default: 0,
+    },
+    // --------------------------------
+
     totalCost: {
       type: Number,
       required: true,
@@ -61,11 +76,31 @@ const bulkRequestSchema = new mongoose.Schema(
 
     expectedDelivery: Date,
 
+    // --- NEW INVOICE TYPE FIELD ---
+    invoiceType: {
+      type: String,
+      enum: ["with_gst", "without_gst"],
+      default: "without_gst",
+    },
+    // ------------------------------
+
     notes: String,
 
     items: [bulkItemSchema],
 
     totalItemCount: Number,
+
+    // --- NEW TOTAL CALCULATION FIELDS ---
+    subTotal: {
+      type: Number,
+      default: 0,
+    },
+    totalGstAmount: {
+      type: Number,
+      default: 0,
+    },
+    // ------------------------------------
+    
     grandTotal: Number,
 
     requestedBy: {
@@ -77,4 +112,5 @@ const bulkRequestSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("BulkRequest", bulkRequestSchema);
+// Prevent OverwriteModelError in Next.js hot-reloads
+export default mongoose.models.BulkRequest || mongoose.model("BulkRequest", bulkRequestSchema);
